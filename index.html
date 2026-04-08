@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>アイドルデータベース</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        max-width: 1400px;
+        margin: 0 auto;
+        background: #fafafa;
+      }
+
+      nav {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 16px;
+        align-items: baseline;
+      }
+      nav h1 {
+        font-size: 18px;
+        margin-right: 16px;
+      }
+      nav a {
+        font-size: 14px;
+        color: #333;
+        text-decoration: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
+      nav a:hover {
+        background: #eee;
+      }
+      nav a.active {
+        font-weight: bold;
+        background: #e0e0e0;
+      }
+
+      /* Search */
+      #searchInput {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        margin-bottom: 16px;
+      }
+
+      /* Filters */
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 16px;
+        padding: 12px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 140px;
+      }
+      .filter-group label {
+        font-size: 12px;
+        color: #666;
+        font-weight: bold;
+      }
+      .filter-group select {
+        font-size: 13px;
+        padding: 4px;
+      }
+
+      /* Range slider */
+      .range-slider {
+        position: relative;
+        height: 24px;
+        margin: 4px 0;
+      }
+      .range-slider input[type='range'] {
+        position: absolute;
+        width: 100%;
+        top: 0;
+        height: 24px;
+        margin: 0;
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+        pointer-events: none;
+      }
+      .range-slider input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 16px;
+        width: 16px;
+        border-radius: 50%;
+        background: #555;
+        cursor: pointer;
+        pointer-events: auto;
+        border: 2px solid #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+      .range-slider input[type='range']::-webkit-slider-runnable-track {
+        height: 4px;
+        background: #ddd;
+        border-radius: 2px;
+      }
+      .range-label {
+        font-size: 11px;
+        color: #999;
+        text-align: center;
+      }
+
+      .result-count {
+        font-size: 13px;
+        color: #888;
+        margin-bottom: 8px;
+      }
+
+      /* Table */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        background: #fff;
+      }
+      th,
+      td {
+        padding: 6px 10px;
+        border-bottom: 1px solid #eee;
+        text-align: left;
+        white-space: nowrap;
+      }
+      th {
+        background: #f5f5f5;
+        font-size: 12px;
+        color: #666;
+        position: sticky;
+        cursor: pointer;
+        user-select: none;
+      }
+      thead tr:first-child th {
+        top: 0;
+      }
+      thead tr:nth-child(2) th {
+        top: 24px;
+      }
+      th.group-header {
+        text-align: center;
+        cursor: default;
+        border-bottom: 1px solid #ddd;
+      }
+      th:hover {
+        background: #eaeaea;
+      }
+      th.group-header:hover {
+        background: #f5f5f5;
+      }
+      th .sort-arrow {
+        font-size: 10px;
+        margin-left: 2px;
+      }
+      tr:hover {
+        background: #f9f9f9;
+      }
+      tr {
+        cursor: pointer;
+      }
+
+      mark {
+        background: #fff176;
+        padding: 0;
+      }
+
+      /* Modal */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 100;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 40px 16px;
+        overflow-y: auto;
+      }
+      .modal-overlay.open {
+        display: flex;
+      }
+      .modal {
+        background: #fff;
+        border-radius: 8px;
+        max-width: 640px;
+        width: 100%;
+        position: relative;
+        padding: 24px;
+      }
+      .modal-close {
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        font-size: 20px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #999;
+      }
+      .modal h2 {
+        font-size: 20px;
+        margin-bottom: 2px;
+      }
+      .modal .furigana {
+        font-size: 12px;
+        color: #999;
+        margin-bottom: 8px;
+      }
+      .modal .cv {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 12px;
+      }
+      .modal .description {
+        font-size: 14px;
+        line-height: 1.7;
+        color: #444;
+        margin-bottom: 16px;
+      }
+      .modal .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 16px;
+        font-size: 13px;
+        margin-bottom: 16px;
+      }
+      .modal .detail-grid .label {
+        color: #999;
+      }
+      .modal .images {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+      .modal .images img {
+        height: 180px;
+        object-fit: contain;
+        border-radius: 4px;
+        background: #f5f5f5;
+      }
+      .modal .links a {
+        font-size: 13px;
+        color: #1976d2;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <h1>iM@S DB</h1>
+      <a href="index.html" class="active">一覧・検索</a>
+      <a href="quiz.html">クイズ</a>
+    </nav>
+
+    <input
+      type="text"
+      id="searchInput"
+      placeholder="キーワード検索（名前・ふりがな・出身地・趣味・CV・説明文）"
+    />
+
+    <div class="filters">
+      <!-- Range filters - populated by JS -->
+      <div class="filter-group" id="fAge">
+        <label>年齢</label>
+        <div class="range-slider">
+          <input type="range" id="ageMin" min="0" max="100" value="0" />
+          <input type="range" id="ageMax" min="0" max="100" value="100" />
+        </div>
+        <div class="range-label" id="ageLbl"></div>
+        <label style="font-weight: normal; font-size: 13px"
+          ><input type="checkbox" id="filterNonNumAge" /> 非数値のみ</label
+        >
+      </div>
+      <div class="filter-group" id="fHeight">
+        <label>身長 (cm)</label>
+        <div class="range-slider">
+          <input type="range" id="heightMin" min="0" max="200" value="0" />
+          <input type="range" id="heightMax" min="0" max="200" value="200" />
+        </div>
+        <div class="range-label" id="heightLbl"></div>
+      </div>
+      <div class="filter-group" id="fWeight">
+        <label>体重 (kg)</label>
+        <div class="range-slider">
+          <input type="range" id="weightMin" min="0" max="100" value="0" />
+          <input type="range" id="weightMax" min="0" max="100" value="100" />
+        </div>
+        <div class="range-label" id="weightLbl"></div>
+        <label style="font-weight: normal; font-size: 13px"
+          ><input type="checkbox" id="filterNonNumWeight" /> 非数値のみ</label
+        >
+      </div>
+      <div class="filter-group" id="fSizesNonNum">
+        <label>スリーサイズ</label>
+        <label style="font-weight: normal; font-size: 13px"
+          ><input type="checkbox" id="filterNonNumSizes" /> 非数値のみ</label
+        >
+      </div>
+      <div class="filter-group" id="fBust">
+        <label>B</label>
+        <div class="range-slider">
+          <input type="range" id="bustMin" min="0" max="120" value="0" />
+          <input type="range" id="bustMax" min="0" max="120" value="120" />
+        </div>
+        <div class="range-label" id="bustLbl"></div>
+      </div>
+      <div class="filter-group" id="fWaist">
+        <label>W</label>
+        <div class="range-slider">
+          <input type="range" id="waistMin" min="0" max="100" value="0" />
+          <input type="range" id="waistMax" min="0" max="100" value="100" />
+        </div>
+        <div class="range-label" id="waistLbl"></div>
+      </div>
+      <div class="filter-group" id="fHip">
+        <label>H</label>
+        <div class="range-slider">
+          <input type="range" id="hipMin" min="0" max="120" value="0" />
+          <input type="range" id="hipMax" min="0" max="120" value="120" />
+        </div>
+        <div class="range-label" id="hipLbl"></div>
+      </div>
+      <div class="filter-group" id="fBirthday">
+        <label>誕生日</label>
+        <div class="range-slider">
+          <input type="range" id="bdayMin" min="1" max="366" value="1" />
+          <input type="range" id="bdayMax" min="1" max="366" value="366" />
+        </div>
+        <div class="range-label" id="bdayLbl"></div>
+      </div>
+
+      <!-- Select filters -->
+      <div class="filter-group">
+        <label>血液型</label>
+        <select id="filterBlood">
+          <option value="">すべて</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>星座</label>
+        <select id="filterZodiac">
+          <option value="">すべて</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>出身地</label>
+        <select id="filterBirthplace">
+          <option value="">すべて</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>利き手</label>
+        <select id="filterHand">
+          <option value="">すべて</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="result-count" id="resultCount"></div>
+
+    <table>
+      <thead>
+        <tr id="tableHeadRow1"></tr>
+        <tr id="tableHeadRow2"></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal" id="modal">
+        <button class="modal-close" id="modalClose">&times;</button>
+        <div id="modalContent"></div>
+      </div>
+    </div>
+
+    <script>
+      let idols = [];
+      let sortCol = null;
+      let sortAsc = true;
+
+      const COLUMNS = [
+        { key: 'name', label: '名前', display: (idol) => idol.name },
+        { key: 'age_num', label: '年齢', display: (idol) => idol.age },
+        { key: 'height_num', label: '身長', display: (idol) => idol.height },
+        { key: 'weight_num', label: '体重', display: (idol) => idol.weight },
+        { key: 'bust', label: 'B', group: 'スリーサイズ', display: (idol) => idol.bust_raw },
+        { key: 'waist', label: 'W', group: 'スリーサイズ', display: (idol) => idol.waist_raw },
+        { key: 'hip', label: 'H', group: 'スリーサイズ', display: (idol) => idol.hip_raw },
+        { key: 'birthday_day', label: '誕生日', display: (idol) => idol.birthday },
+        { key: 'blood_type', label: '血液型', display: (idol) => idol.blood_type },
+        { key: 'zodiac', label: '星座', display: (idol) => idol.zodiac },
+        { key: 'birthplace', label: '出身地', display: (idol) => idol.birthplace },
+        { key: 'dominant_hand', label: '利き手', display: (idol) => idol.dominant_hand },
+        { key: 'hobby', label: '趣味', display: (idol) => idol.hobby },
+        { key: 'cv', label: 'CV', display: (idol) => idol.cv || '-' }
+      ];
+
+      function parseNum(str, suffix) {
+        const n = parseInt(str);
+        return isNaN(n) ? null : n;
+      }
+
+      function parseBirthday(str) {
+        const m = str.match(/(\d+)月(\d+)日/);
+        if (!m) return null;
+        const month = parseInt(m[1]),
+          day = parseInt(m[2]);
+        const daysInMonth = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let doy = day;
+        for (let i = 1; i < month; i++) doy += daysInMonth[i];
+        return doy;
+      }
+
+      function dayOfYearToStr(doy) {
+        const daysInMonth = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let month = 1;
+        let remaining = doy;
+        while (month <= 12 && remaining > daysInMonth[month]) {
+          remaining -= daysInMonth[month];
+          month++;
+        }
+        return `${month}月${remaining}日`;
+      }
+
+      async function init() {
+        const res = await fetch('idol_data.json');
+        idols = await res.json();
+
+        // Parse numeric fields
+        idols.forEach((idol) => {
+          idol.age_num = parseNum(idol.age);
+          idol.height_num = parseNum(idol.height);
+          idol.weight_num = parseNum(idol.weight);
+          idol.birthday_day = parseBirthday(idol.birthday);
+          const sizeParts = idol.three_sizes.split('/');
+          idol.bust_raw = sizeParts[0] || '';
+          idol.waist_raw = sizeParts[1] || '';
+          idol.hip_raw = sizeParts[2] || '';
+          idol.bust = isNaN(parseInt(sizeParts[0])) ? null : parseInt(sizeParts[0]);
+          idol.waist = isNaN(parseInt(sizeParts[1])) ? null : parseInt(sizeParts[1]);
+          idol.hip = isNaN(parseInt(sizeParts[2])) ? null : parseInt(sizeParts[2]);
+        });
+
+        setupRangeSlider(
+          'age',
+          'ageLbl',
+          idols.map((i) => i.age_num),
+          (v) => v + '歳'
+        );
+        setupRangeSlider(
+          'height',
+          'heightLbl',
+          idols.map((i) => i.height_num),
+          (v) => v + 'cm'
+        );
+        setupRangeSlider(
+          'weight',
+          'weightLbl',
+          idols.map((i) => i.weight_num),
+          (v) => v + 'kg'
+        );
+        setupRangeSlider(
+          'bust',
+          'bustLbl',
+          idols.map((i) => i.bust),
+          (v) => v.toString()
+        );
+        setupRangeSlider(
+          'waist',
+          'waistLbl',
+          idols.map((i) => i.waist),
+          (v) => v.toString()
+        );
+        setupRangeSlider(
+          'hip',
+          'hipLbl',
+          idols.map((i) => i.hip),
+          (v) => v.toString()
+        );
+
+        // Birthday slider
+        const bdMin = document.getElementById('bdayMin');
+        const bdMax = document.getElementById('bdayMax');
+        bdMin.min = 1;
+        bdMin.max = 366;
+        bdMin.value = 1;
+        bdMax.min = 1;
+        bdMax.max = 366;
+        bdMax.value = 366;
+        const updateBdayLabel = () => {
+          document.getElementById('bdayLbl').textContent =
+            dayOfYearToStr(+bdMin.value) + ' 〜 ' + dayOfYearToStr(+bdMax.value);
+        };
+        bdMin.addEventListener('input', () => {
+          if (+bdMin.value > +bdMax.value) bdMin.value = bdMax.value;
+          updateBdayLabel();
+          render();
+        });
+        bdMax.addEventListener('input', () => {
+          if (+bdMax.value < +bdMin.value) bdMax.value = bdMin.value;
+          updateBdayLabel();
+          render();
+        });
+        updateBdayLabel();
+
+        populateSelect(
+          'filterBlood',
+          idols.map((i) => i.blood_type)
+        );
+        populateSelect(
+          'filterZodiac',
+          idols.map((i) => i.zodiac)
+        );
+        populateSelect(
+          'filterBirthplace',
+          idols.map((i) => i.birthplace)
+        );
+        populateSelect(
+          'filterHand',
+          idols.map((i) => i.dominant_hand)
+        );
+
+        buildTableHead();
+
+        document.getElementById('searchInput').addEventListener('input', render);
+        document.getElementById('filterBlood').addEventListener('change', render);
+        document.getElementById('filterZodiac').addEventListener('change', render);
+        document.getElementById('filterBirthplace').addEventListener('change', render);
+        document.getElementById('filterHand').addEventListener('change', render);
+        document.getElementById('filterNonNumAge').addEventListener('change', render);
+        document.getElementById('filterNonNumWeight').addEventListener('change', render);
+        document.getElementById('filterNonNumSizes').addEventListener('change', render);
+
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+          if (e.target === e.currentTarget) closeModal();
+        });
+        document.getElementById('modalClose').addEventListener('click', closeModal);
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') closeModal();
+        });
+
+        render();
+      }
+
+      function setupRangeSlider(prefix, lblId, values, fmt) {
+        const nums = values.filter((v) => v != null);
+        const min = Math.min(...nums);
+        const max = Math.max(...nums);
+        const elMin = document.getElementById(prefix + 'Min');
+        const elMax = document.getElementById(prefix + 'Max');
+        elMin.min = min;
+        elMin.max = max;
+        elMin.value = min;
+        elMax.min = min;
+        elMax.max = max;
+        elMax.value = max;
+        const updateLabel = () => {
+          document.getElementById(lblId).textContent =
+            fmt(+elMin.value) + ' 〜 ' + fmt(+elMax.value);
+        };
+        elMin.addEventListener('input', () => {
+          if (+elMin.value > +elMax.value) elMin.value = elMax.value;
+          updateLabel();
+          render();
+        });
+        elMax.addEventListener('input', () => {
+          if (+elMax.value < +elMin.value) elMax.value = elMin.value;
+          updateLabel();
+          render();
+        });
+        updateLabel();
+      }
+
+      function populateSelect(id, values) {
+        const sel = document.getElementById(id);
+        const unique = [...new Set(values.filter(Boolean))].sort();
+        unique.forEach((v) => {
+          const o = document.createElement('option');
+          o.value = v;
+          o.textContent = v;
+          sel.appendChild(o);
+        });
+      }
+
+      function buildTableHead() {
+        const row1 = document.getElementById('tableHeadRow1');
+        const row2 = document.getElementById('tableHeadRow2');
+        let row1Html = '';
+        let row2Html = '';
+        let i = 0;
+        while (i < COLUMNS.length) {
+          const col = COLUMNS[i];
+          if (col.group) {
+            // Count consecutive columns in same group
+            let groupCount = 0;
+            while (i + groupCount < COLUMNS.length && COLUMNS[i + groupCount].group === col.group)
+              groupCount++;
+            row1Html += `<th class="group-header" colspan="${groupCount}">${col.group}</th>`;
+            for (let j = 0; j < groupCount; j++) {
+              const gc = COLUMNS[i + j];
+              row2Html += `<th data-key="${gc.key}">${gc.label}<span class="sort-arrow"></span></th>`;
+            }
+            i += groupCount;
+          } else {
+            row1Html += `<th data-key="${col.key}" rowspan="2">${col.label}<span class="sort-arrow"></span></th>`;
+            i++;
+          }
+        }
+        row1.innerHTML = row1Html;
+        row2.innerHTML = row2Html;
+
+        // Attach sort handlers to all sortable th (those with data-key)
+        document.querySelectorAll('thead th[data-key]').forEach((th) => {
+          th.addEventListener('click', () => {
+            const key = th.dataset.key;
+            if (sortCol === key) sortAsc = !sortAsc;
+            else {
+              sortCol = key;
+              sortAsc = true;
+            }
+            render();
+          });
+        });
+      }
+
+      function getRangeVal(prefix) {
+        const el = document.getElementById(prefix + 'Min');
+        const elMax = document.getElementById(prefix + 'Max');
+        return [+el.value, +elMax.value, +el.min, +elMax.max];
+      }
+
+      function inRange(val, range) {
+        const [lo, hi, dataMin, dataMax] = range;
+        const moved = lo !== dataMin || hi !== dataMax;
+        if (val == null) return !moved;
+        return val >= lo && val <= hi;
+      }
+
+      function render() {
+        const q = document.getElementById('searchInput').value.trim().toLowerCase();
+        const blood = document.getElementById('filterBlood').value;
+        const zodiac = document.getElementById('filterZodiac').value;
+        const place = document.getElementById('filterBirthplace').value;
+        const hand = document.getElementById('filterHand').value;
+        const ageR = getRangeVal('age');
+        const heightR = getRangeVal('height');
+        const weightR = getRangeVal('weight');
+        const bustR = getRangeVal('bust');
+        const waistR = getRangeVal('waist');
+        const hipR = getRangeVal('hip');
+        const bdayR = getRangeVal('bday');
+        const nonNumAge = document.getElementById('filterNonNumAge').checked;
+        const nonNumWeight = document.getElementById('filterNonNumWeight').checked;
+        const nonNumSizes = document.getElementById('filterNonNumSizes').checked;
+
+        const searchFields = (idol) => [
+          idol.name,
+          idol.furigana,
+          idol.birthplace,
+          idol.hobby,
+          idol.cv,
+          idol.description
+        ];
+
+        let filtered = idols.filter((idol) => {
+          if (q && !searchFields(idol).some((f) => f && f.toLowerCase().includes(q))) return false;
+          if (blood && idol.blood_type !== blood) return false;
+          if (zodiac && idol.zodiac !== zodiac) return false;
+          if (place && idol.birthplace !== place) return false;
+          if (hand && idol.dominant_hand !== hand) return false;
+          if (nonNumAge) {
+            if (idol.age_num != null) return false;
+          } else {
+            if (!inRange(idol.age_num, ageR)) return false;
+          }
+          if (!inRange(idol.height_num, heightR)) return false;
+          if (nonNumWeight) {
+            if (idol.weight_num != null) return false;
+          } else {
+            if (!inRange(idol.weight_num, weightR)) return false;
+          }
+          if (nonNumSizes) {
+            if (idol.bust != null) return false;
+          } else {
+            if (!inRange(idol.bust, bustR)) return false;
+            if (!inRange(idol.waist, waistR)) return false;
+            if (!inRange(idol.hip, hipR)) return false;
+          }
+          if (idol.birthday_day != null && !inRange(idol.birthday_day, bdayR)) return false;
+          return true;
+        });
+
+        // Sort
+        if (sortCol) {
+          filtered.sort((a, b) => {
+            let va = a[sortCol] ?? '';
+            let vb = b[sortCol] ?? '';
+            if (typeof va === 'number' && typeof vb === 'number')
+              return sortAsc ? va - vb : vb - va;
+            va = String(va);
+            vb = String(vb);
+            return sortAsc ? va.localeCompare(vb, 'ja') : vb.localeCompare(va, 'ja');
+          });
+        }
+
+        document.getElementById('resultCount').textContent =
+          `${filtered.length} / ${idols.length} 件`;
+
+        // Update sort arrows
+        document.querySelectorAll('thead th[data-key]').forEach((th) => {
+          const arrow = th.querySelector('.sort-arrow');
+          if (th.dataset.key === sortCol) arrow.textContent = sortAsc ? ' ▲' : ' ▼';
+          else arrow.textContent = '';
+        });
+
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = filtered
+          .map((idol) => {
+            const cells = COLUMNS.map((col) => {
+              let text = col.display(idol);
+              if (q) text = highlight(text, q);
+              return `<td>${text}</td>`;
+            }).join('');
+            return `<tr data-slug="${idol.slug}">${cells}</tr>`;
+          })
+          .join('');
+
+        tbody.querySelectorAll('tr').forEach((tr) => {
+          tr.addEventListener('click', () => {
+            const idol = idols.find((i) => i.slug === tr.dataset.slug);
+            if (idol) openModal(idol);
+          });
+        });
+      }
+
+      function highlight(text, query) {
+        if (!query || !text) return text;
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
+      }
+
+      function openModal(idol) {
+        const fields = [
+          ['年齢', idol.age],
+          ['身長', idol.height],
+          ['体重', idol.weight],
+          ['誕生日', idol.birthday],
+          ['血液型', idol.blood_type],
+          ['星座', idol.zodiac],
+          ['出身地', idol.birthplace],
+          ['利き手', idol.dominant_hand],
+          ['スリーサイズ', idol.three_sizes],
+          ['趣味', idol.hobby]
+        ];
+        document.getElementById('modalContent').innerHTML = `
+    <div class="furigana">${idol.furigana}</div>
+    <h2>${idol.name}</h2>
+    <div class="cv">${idol.cv ? 'CV: ' + idol.cv : ''}</div>
+    <div class="images">
+      <img src="${idol.img_detail}" alt="${idol.name}">
+      <img src="${idol.img_sd}" alt="SD">
+    </div>
+    <div class="description">${idol.description}</div>
+    <div class="detail-grid">
+      ${fields.map(([l, v]) => `<div><span class="label">${l}:</span> ${v}</div>`).join('')}
+    </div>
+    <div class="images"><img src="${idol.img_sign}" alt="サイン"></div>
+    <div class="links"><a href="${idol.profile_url}" target="_blank">公式プロフィール →</a></div>
+  `;
+        document.getElementById('modalOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeModal() {
+        document.getElementById('modalOverlay').classList.remove('open');
+        document.body.style.overflow = '';
+      }
+
+      init();
+    </script>
+  </body>
+</html>
