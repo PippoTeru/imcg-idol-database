@@ -17,9 +17,13 @@
 </main>
 
 <style>
+  :global(html),
   :global(body) {
-    height: 100vh;
+    height: 100dvh;
     overflow: hidden;
+  }
+
+  :global(body) {
     display: flex;
     flex-direction: column;
   }

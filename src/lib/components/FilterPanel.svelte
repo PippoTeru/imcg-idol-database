@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import type RangeSliderType from 'svelte-range-slider-pips';
   import type { RangeFilter } from '$lib/columns';
+  import { dayOfYearToStr } from '$lib/utils';
 
   let RangeSlider = $state<typeof RangeSliderType | null>(null);
   let visible = $state(false);
@@ -74,20 +75,10 @@
   const birthplaces = [...new Set(idols.map((i) => i.birthplace))].sort();
   const hands = [...new Set(idols.map((i) => i.dominant_hand))].sort();
 
-  function dayOfYearToStr(doy: number): string {
-    const daysInMonth = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let month = 1;
-    let remaining = doy;
-    while (month <= 12 && remaining > daysInMonth[month]) {
-      remaining -= daysInMonth[month];
-      month++;
-    }
-    return `${month}月${remaining}日`;
-  }
 </script>
 
 {#if visible}
-  <div class="overlay" class:closing onclick={handleClose} role="presentation"></div>
+  <div class="overlay" class:closing onclick={handleClose} role="presentation"><!-- global .overlay --></div>
   <aside class="filter-panel" class:closing onanimationend={onAnimationEnd}>
     <h2>フィルタ</h2>
 
@@ -182,20 +173,12 @@
       </div>
     {/if}
 
-    <button class="submit" onclick={handleClose}>絞り込む</button>
+    <button class="btn btn-primary submit" onclick={handleClose}>絞り込む</button>
   </aside>
 {/if}
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.3);
-    z-index: 100;
-    animation: fade-in 0.2s ease-out;
-  }
-
-  .overlay.closing {
+  .closing {
     animation: fade-out 0.2s ease-in forwards;
   }
 
@@ -219,26 +202,6 @@
     animation: slide-out 0.2s ease-in forwards;
   }
 
-  @keyframes slide-in {
-    from { transform: translateX(100%); }
-    to { transform: translateX(0); }
-  }
-
-  @keyframes slide-out {
-    from { transform: translateX(0); }
-    to { transform: translateX(100%); }
-  }
-
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  @keyframes fade-out {
-    from { opacity: 1; }
-    to { opacity: 0; }
-  }
-
   h2 {
     font-size: 16px;
     font-weight: 700;
@@ -255,7 +218,7 @@
   select {
     padding: 6px 8px;
     font-size: 13px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-gray-400);
     border-radius: 4px;
   }
 
@@ -267,18 +230,6 @@
 
   .submit {
     margin-top: auto;
-    padding: 10px;
-    font-size: 14px;
-    font-weight: 600;
-    border: none;
-    border-radius: 6px;
-    background: #2681c8;
-    color: #fff;
-    cursor: pointer;
-  }
-
-  .submit:hover {
-    background: #1f6fad;
   }
 
   @media (max-width: 768px) {

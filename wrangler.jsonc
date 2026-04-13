@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "imsg-idol-database",
+  "account_id": "a603cd60218a7031753aec44f30eea6e",
   "compatibility_date": "2026-04-03",
   "compatibility_flags": ["nodejs_als"],
   "main": ".svelte-kit/cloudflare/_worker.js",

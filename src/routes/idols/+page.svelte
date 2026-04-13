@@ -3,24 +3,7 @@
   import IdolTable from '$lib/components/IdolTable.svelte';
   import FilterPanel from '$lib/components/FilterPanel.svelte';
   import type { RangeFilter } from '$lib/columns';
-
-  function computeRange(values: number[]): { min: number; max: number } {
-    return { min: Math.min(...values), max: Math.max(...values) };
-  }
-
-  function parseNums(arr: string[]): number[] {
-    return arr.map((s) => parseInt(s)).filter((n) => !isNaN(n));
-  }
-
-  const ageRange = computeRange(parseNums(idols.map((i) => i.age)));
-  const heightRange = computeRange(parseNums(idols.map((i) => i.height)));
-  const weightRange = computeRange(parseNums(idols.map((i) => i.weight)));
-  const bustRange = computeRange(parseNums(idols.map((i) => i.three_sizes.split('/')[0])));
-  const waistRange = computeRange(parseNums(idols.map((i) => i.three_sizes.split('/')[1])));
-  const hipRange = computeRange(parseNums(idols.map((i) => i.three_sizes.split('/')[2])));
-
-  // Birthday as day-of-year (1-366)
-  const bdayRange = { min: 1, max: 366 };
+  import { computeRange, parseNums } from '$lib/utils';
 
   let keyword = $state('');
   let filterOpen = $state(false);
@@ -33,25 +16,13 @@
   let nonNumAge = $state(false);
   let nonNumWeight = $state(false);
   let nonNumSizes = $state(false);
-  let age = $state<RangeFilter>({ ...ageRange, dataMin: ageRange.min, dataMax: ageRange.max });
-  let height = $state<RangeFilter>({
-    ...heightRange,
-    dataMin: heightRange.min,
-    dataMax: heightRange.max
-  });
-  let weight = $state<RangeFilter>({
-    ...weightRange,
-    dataMin: weightRange.min,
-    dataMax: weightRange.max
-  });
-  let bust = $state<RangeFilter>({ ...bustRange, dataMin: bustRange.min, dataMax: bustRange.max });
-  let waist = $state<RangeFilter>({
-    ...waistRange,
-    dataMin: waistRange.min,
-    dataMax: waistRange.max
-  });
-  let hip = $state<RangeFilter>({ ...hipRange, dataMin: hipRange.min, dataMax: hipRange.max });
-  let bday = $state<RangeFilter>({ ...bdayRange, dataMin: bdayRange.min, dataMax: bdayRange.max });
+  let age = $state(computeRange(parseNums(idols.map((i) => i.age))));
+  let height = $state(computeRange(parseNums(idols.map((i) => i.height))));
+  let weight = $state(computeRange(parseNums(idols.map((i) => i.weight))));
+  let bust = $state(computeRange(parseNums(idols.map((i) => i.three_sizes.split('/')[0]))));
+  let waist = $state(computeRange(parseNums(idols.map((i) => i.three_sizes.split('/')[1]))));
+  let hip = $state(computeRange(parseNums(idols.map((i) => i.three_sizes.split('/')[2]))));
+  let bday = $state<RangeFilter>({ min: 1, max: 366, dataMin: 1, dataMax: 366 });
 </script>
 
 <div style={tableWidthPx ? `--table-width: ${tableWidthPx}px` : ''}>
@@ -60,7 +31,7 @@
   <span class="result-count">{filteredCount} / {idols.length} 件</span>
   <div class="page-header-right">
     <input type="text" placeholder="キーワード検索" bind:value={keyword} />
-    <button onclick={() => (filterOpen = true)}><span class="material-symbols-outlined">filter_list</span> フィルタ</button>
+    <button class="btn filter-btn" onclick={() => (filterOpen = true)}><span class="material-symbols-outlined">filter_list</span> フィルタ</button>
   </div>
 </div>
 
@@ -123,7 +94,7 @@
 
   .result-count {
     font-size: 13px;
-    color: #888;
+    color: var(--color-gray-500);
   }
 
   .page-header-right {
@@ -137,29 +108,21 @@
     width: 240px;
     padding: 6px 10px;
     font-size: 13px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-gray-400);
     border-radius: 4px;
   }
 
-  .page-header-right button {
+  .filter-btn {
     display: flex;
     align-items: center;
     gap: 4px;
     padding: 6px 12px;
     font-size: 13px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    cursor: pointer;
-    background: #fff;
     white-space: nowrap;
   }
 
-  .page-header-right button :global(.material-symbols-outlined) {
+  .filter-btn :global(.material-symbols-outlined) {
     font-size: 18px;
-  }
-
-  .page-header-right button:hover {
-    background: #f5f5f5;
   }
 
   @media (max-width: 768px) {
