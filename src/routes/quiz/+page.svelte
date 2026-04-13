@@ -49,6 +49,21 @@
       if (s.answerFieldKey) answerFieldKey = s.answerFieldKey;
       if (s.isMultipleChoice !== undefined) isMultipleChoice = s.isMultipleChoice;
       if (s.questionCount) questionCount = s.questionCount;
+      // フィルタの復元
+      if (s.bloodType) bloodType = s.bloodType;
+      if (s.zodiac) zodiac = s.zodiac;
+      if (s.birthplace) birthplace = s.birthplace;
+      if (s.hand) hand = s.hand;
+      if (s.nonNumAge !== undefined) nonNumAge = s.nonNumAge;
+      if (s.nonNumWeight !== undefined) nonNumWeight = s.nonNumWeight;
+      if (s.nonNumSizes !== undefined) nonNumSizes = s.nonNumSizes;
+      if (s.age) age = { ...age, min: s.age.min, max: s.age.max };
+      if (s.height) height = { ...height, min: s.height.min, max: s.height.max };
+      if (s.weight) weight = { ...weight, min: s.weight.min, max: s.weight.max };
+      if (s.bust) bust = { ...bust, min: s.bust.min, max: s.bust.max };
+      if (s.waist) waist = { ...waist, min: s.waist.min, max: s.waist.max };
+      if (s.hip) hip = { ...hip, min: s.hip.min, max: s.hip.max };
+      if (s.bday) bday = { ...bday, min: s.bday.min, max: s.bday.max };
     } catch {
       // ignore
     }
@@ -57,7 +72,18 @@
   function saveSettings() {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ questionFieldKey, answerFieldKey, isMultipleChoice, questionCount })
+      JSON.stringify({
+        questionFieldKey, answerFieldKey, isMultipleChoice, questionCount,
+        bloodType, zodiac, birthplace, hand,
+        nonNumAge, nonNumWeight, nonNumSizes,
+        age: { min: age.min, max: age.max },
+        height: { min: height.min, max: height.max },
+        weight: { min: weight.min, max: weight.max },
+        bust: { min: bust.min, max: bust.max },
+        waist: { min: waist.min, max: waist.max },
+        hip: { min: hip.min, max: hip.max },
+        bday: { min: bday.min, max: bday.max },
+      })
     );
   }
 
