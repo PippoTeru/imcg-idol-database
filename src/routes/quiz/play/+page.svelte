@@ -159,23 +159,36 @@
     phase = 'playing';
   }
 
-  function retrySame() {
+  function resetQuiz(newQuestions: typeof questions) {
+    questions = newQuestions;
     currentIdx = 0;
-    answers = new Array(questions.length).fill(null);
+    answers = new Array(newQuestions.length).fill(null);
     showAnswer = false;
     phase = 'playing';
   }
 
+  function shuffleQuestions(qs: typeof questions) {
+    return [...qs].sort(() => Math.random() - 0.5);
+  }
+
+  function retrySame() {
+    resetQuiz(questions);
+  }
+
+  function retrySameShuffled() {
+    resetQuiz(shuffleQuestions(questions));
+  }
+
   function retryWrongOnly() {
-    const wrongIdols = questions
-      .filter((q, i) => answers[i] !== answerField.get(q.idol))
-      .map((q) => q.idol);
-    if (wrongIdols.length === 0) return;
-    questions = generateQuiz(wrongIdols, answerField, wrongIdols.length, isMultipleChoice);
-    currentIdx = 0;
-    answers = new Array(questions.length).fill(null);
-    showAnswer = false;
-    phase = 'playing';
+    const wrong = questions.filter((q, i) => answers[i] !== answerField.get(q.idol));
+    if (wrong.length === 0) return;
+    resetQuiz(wrong);
+  }
+
+  function retryWrongShuffled() {
+    const wrong = questions.filter((q, i) => answers[i] !== answerField.get(q.idol));
+    if (wrong.length === 0) return;
+    resetQuiz(shuffleQuestions(wrong));
   }
 </script>
 
@@ -295,11 +308,15 @@
     <div class="result-actions">
       <button class="btn btn-primary" onclick={retry}>別の問題でもう一度</button>
       <div class="result-actions-row">
-        <button class="btn btn-secondary" onclick={retrySame}>同じ問題でもう一度</button>
-        {#if correctCount < questions.length}
-          <button class="btn btn-secondary" onclick={retryWrongOnly}>誤答問題でもう一度</button>
-        {/if}
+        <button class="btn btn-secondary" onclick={retrySame}>同じ問題（同順）</button>
+        <button class="btn btn-secondary" onclick={retrySameShuffled}>同じ問題（シャッフル）</button>
       </div>
+      {#if correctCount < questions.length}
+        <div class="result-actions-row">
+          <button class="btn btn-secondary" onclick={retryWrongOnly}>誤答のみ（同順）</button>
+          <button class="btn btn-secondary" onclick={retryWrongShuffled}>誤答のみ（シャッフル）</button>
+        </div>
+      {/if}
       <button class="btn btn-muted" onclick={() => goto('/quiz')}>問題設定に戻る</button>
     </div>
   </div>
