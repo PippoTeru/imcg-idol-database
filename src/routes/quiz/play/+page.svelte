@@ -129,6 +129,10 @@
 
   // Keyboard shortcuts
   function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      showQuitConfirm = !showQuitConfirm;
+      return;
+    }
     if (e.key === 'Enter' && showAnswer) {
       textInput = '';
       nextQuestion();
