@@ -3,7 +3,8 @@
   import { page } from '$app/state';
   import idols from '$lib/data/idol_data.json';
   import { quizFields, generateQuiz } from '$lib/quiz';
-  import type { Idol } from '$lib/columns';
+  import type { Idol, RangeFilter } from '$lib/columns';
+  import { filterIdols } from '$lib/utils';
 
   // Parse settings from URL
   const params = page.url.searchParams;
@@ -15,68 +16,31 @@
   const questionField = quizFields.find((f) => f.key === questionFieldKey)!;
   const answerField = quizFields.find((f) => f.key === answerFieldKey)!;
 
-  // Parse filter params
-  const bloodType = params.get('bloodType') ?? '';
-  const zodiac = params.get('zodiac') ?? '';
-  const birthplace = params.get('birthplace') ?? '';
-  const hand = params.get('hand') ?? '';
-  const nonNumAge = params.get('nonNumAge') === '1';
-  const nonNumWeight = params.get('nonNumWeight') === '1';
-  const nonNumSizes = params.get('nonNumSizes') === '1';
-  const ageMin = params.has('ageMin') ? parseInt(params.get('ageMin')!) : null;
-  const ageMax = params.has('ageMax') ? parseInt(params.get('ageMax')!) : null;
-  const heightMin = params.has('heightMin') ? parseInt(params.get('heightMin')!) : null;
-  const heightMax = params.has('heightMax') ? parseInt(params.get('heightMax')!) : null;
-  const weightMin = params.has('weightMin') ? parseInt(params.get('weightMin')!) : null;
-  const weightMax = params.has('weightMax') ? parseInt(params.get('weightMax')!) : null;
-  const bustMin = params.has('bustMin') ? parseInt(params.get('bustMin')!) : null;
-  const bustMax = params.has('bustMax') ? parseInt(params.get('bustMax')!) : null;
-  const waistMin = params.has('waistMin') ? parseInt(params.get('waistMin')!) : null;
-  const waistMax = params.has('waistMax') ? parseInt(params.get('waistMax')!) : null;
-  const hipMin = params.has('hipMin') ? parseInt(params.get('hipMin')!) : null;
-  const hipMax = params.has('hipMax') ? parseInt(params.get('hipMax')!) : null;
-  const bdayMin = params.has('bdayMin') ? parseInt(params.get('bdayMin')!) : null;
-  const bdayMax = params.has('bdayMax') ? parseInt(params.get('bdayMax')!) : null;
-
-  function parseBirthdayToDoy(s: string): number | null {
-    const m = s.match(/(\d+)月(\d+)日/);
-    if (!m) return null;
-    const daysInMonth = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let doy = parseInt(m[2]);
-    for (let i = 1; i < parseInt(m[1]); i++) doy += daysInMonth[i];
-    return doy;
+  // Parse filter params from URL into RangeFilter objects
+  function rangeFromParams(key: string, fallbackMin: number, fallbackMax: number): RangeFilter {
+    const min = params.has(`${key}Min`) ? parseInt(params.get(`${key}Min`)!) : fallbackMin;
+    const max = params.has(`${key}Max`) ? parseInt(params.get(`${key}Max`)!) : fallbackMax;
+    return { min, max, dataMin: fallbackMin, dataMax: fallbackMax };
   }
 
-  // Filter idols
-  const parseN = (s: string) => { const n = parseInt(s); return isNaN(n) ? null : n; };
-  const inNum = (val: number | null, min: number | null, max: number | null, nonNum: boolean) => {
-    if (nonNum) return val === null;
-    if (val === null) return min === null && max === null;
-    if (min !== null && val < min) return false;
-    if (max !== null && val > max) return false;
-    return true;
-  };
+  const INF = -Infinity;
+  const PINF = Infinity;
 
-  const targetIdols = (idols as Idol[]).filter((idol) => {
-    if (bloodType && idol.blood_type !== bloodType) return false;
-    if (zodiac && idol.zodiac !== zodiac) return false;
-    if (birthplace && idol.birthplace !== birthplace) return false;
-    if (hand && idol.dominant_hand !== hand) return false;
-    if (!inNum(parseN(idol.age), ageMin, ageMax, nonNumAge)) return false;
-    if (!inNum(parseN(idol.height), heightMin, heightMax, false)) return false;
-    if (!inNum(parseN(idol.weight), weightMin, weightMax, nonNumWeight)) return false;
-    const sizes = idol.three_sizes.split('/');
-    if (nonNumSizes) {
-      if (parseN(sizes[0]) !== null) return false;
-    } else {
-      if (!inNum(parseN(sizes[0]), bustMin, bustMax, false)) return false;
-      if (!inNum(parseN(sizes[1]), waistMin, waistMax, false)) return false;
-      if (!inNum(parseN(sizes[2]), hipMin, hipMax, false)) return false;
-    }
-    const doy = parseBirthdayToDoy(idol.birthday);
-    if (bdayMin !== null && doy !== null && doy < bdayMin) return false;
-    if (bdayMax !== null && doy !== null && doy > bdayMax) return false;
-    return true;
+  const targetIdols = filterIdols(idols as Idol[], {
+    bloodType: params.get('bloodType') ?? '',
+    zodiac: params.get('zodiac') ?? '',
+    birthplace: params.get('birthplace') ?? '',
+    hand: params.get('hand') ?? '',
+    nonNumAge: params.get('nonNumAge') === '1',
+    nonNumWeight: params.get('nonNumWeight') === '1',
+    nonNumSizes: params.get('nonNumSizes') === '1',
+    age: rangeFromParams('age', INF, PINF),
+    height: rangeFromParams('height', INF, PINF),
+    weight: rangeFromParams('weight', INF, PINF),
+    bust: rangeFromParams('bust', INF, PINF),
+    waist: rangeFromParams('waist', INF, PINF),
+    hip: rangeFromParams('hip', INF, PINF),
+    bday: rangeFromParams('bday', INF, PINF),
   });
 
   // Generate quiz
@@ -110,6 +74,7 @@
 
   function nextQuestion() {
     showAnswer = false;
+    imgError = false;
     if (currentIdx + 1 < questions.length) {
       currentIdx++;
     } else {
@@ -128,6 +93,9 @@
     questions.filter((q, i) => answers[i] === answerField.get(q.idol)).length
   );
 
+  // 画像読み込みエラー
+  let imgError = $state(false);
+
   // Text input
   let textInput = $state('');
   let textInputEl = $state<HTMLInputElement | undefined>(undefined);
@@ -137,6 +105,18 @@
     if (phase === 'playing' && !isMultipleChoice && textInputEl) {
       textInputEl.focus();
     }
+  });
+
+  // キーボード表示時に入力欄を見える位置にスクロール
+  $effect(() => {
+    if (!textInputEl) return;
+    const scrollIntoView = () => {
+      setTimeout(() => {
+        textInputEl?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 300);
+    };
+    textInputEl.addEventListener('focus', scrollIntoView);
+    return () => textInputEl?.removeEventListener('focus', scrollIntoView);
   });
 
   // Quit confirmation
@@ -185,6 +165,18 @@
     showAnswer = false;
     phase = 'playing';
   }
+
+  function retryWrongOnly() {
+    const wrongIdols = questions
+      .filter((q, i) => answers[i] !== answerField.get(q.idol))
+      .map((q) => q.idol);
+    if (wrongIdols.length === 0) return;
+    questions = generateQuiz(wrongIdols, answerField, wrongIdols.length, isMultipleChoice);
+    currentIdx = 0;
+    answers = new Array(questions.length).fill(null);
+    showAnswer = false;
+    phase = 'playing';
+  }
 </script>
 
 {#if phase === 'playing' && currentQuestion}
@@ -196,7 +188,22 @@
 
     <div class="question">
       {#if questionField.type === 'image'}
-        <img src={questionField.get(currentQuestion.idol)} alt="問題" />
+        {#if imgError}
+          <button
+            class="img-retry-btn"
+            onclick={() => {
+              imgError = false;
+            }}
+          >読み込み失敗　タップで再試行</button>
+        {:else}
+          {#key `${currentIdx}-${imgError}`}
+            <img
+              src={questionField.get(currentQuestion.idol)}
+              alt="問題"
+              onerror={() => { imgError = true; }}
+            />
+          {/key}
+        {/if}
       {:else}
         <p class="question-text">{questionField.get(currentQuestion.idol)}</p>
       {/if}
@@ -234,7 +241,7 @@
   </div>
 
   {#if showAnswer}
-    <div class="feedback-overlay" role="presentation">
+    <div class="overlay dark feedback-overlay" role="presentation">
       <div class="feedback-modal" class:correct={isCorrect} class:wrong={!isCorrect}>
         {#if isCorrect}
           <p class="feedback-text">正解!</p>
@@ -242,7 +249,7 @@
           <p class="feedback-text">不正解...</p>
           <p class="feedback-answer">正解: {answerField.get(currentQuestion.idol)}</p>
         {/if}
-        <button class="feedback-btn" onclick={() => { textInput = ''; nextQuestion(); }}>
+        <button class="btn btn-primary" onclick={() => { textInput = ''; nextQuestion(); }}>
           {currentIdx + 1 < questions.length ? '次の問題' : '結果を見る'}
         </button>
       </div>
@@ -251,12 +258,12 @@
 
   {#if showQuitConfirm}
     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
-    <div class="feedback-overlay" onclick={() => (showQuitConfirm = false)}>
+    <div class="overlay dark feedback-overlay" onclick={() => (showQuitConfirm = false)}>
       <div class="feedback-modal" onclick={(e) => e.stopPropagation()}>
         <p class="feedback-text">クイズを中断しますか？</p>
         <div class="quit-actions">
-          <button class="feedback-btn" onclick={quitQuiz}>設定に戻る</button>
-          <button class="quit-cancel" onclick={() => (showQuitConfirm = false)}>続ける</button>
+          <button class="btn btn-primary" onclick={quitQuiz}>設定に戻る</button>
+          <button class="btn quit-cancel" onclick={() => (showQuitConfirm = false)}>続ける</button>
         </div>
       </div>
     </div>
@@ -268,27 +275,32 @@
     <h2>結果</h2>
     <p class="score">{correctCount} / {questions.length} 問正解 ({Math.round((correctCount / questions.length) * 100)}%)</p>
 
-    <h3>間違えた問題</h3>
-    <ul class="mistakes">
+    <ul class="result-list">
       {#each questions as q, i}
-        {#if answers[i] !== answerField.get(q.idol)}
-          <li>
-            {#if questionField.type === 'image'}
-              <img src={questionField.get(q.idol)} alt="" />
-            {:else}
-              <span class="q">問題: {questionField.get(q.idol)}</span>
-            {/if}
-            <span class="a">正解: {answerField.get(q.idol)}</span>
+        {@const correct = answers[i] === answerField.get(q.idol)}
+        <li class:correct class:wrong={!correct}>
+          {#if questionField.type === 'image'}
+            <img src={questionField.get(q.idol)} alt="" />
+          {:else}
+            <span class="q">問題: {questionField.get(q.idol)}</span>
+          {/if}
+          <span class="a">正解: {answerField.get(q.idol)}</span>
+          {#if !correct}
             <span class="wrong-a">あなたの回答: {answers[i] ?? '未回答'}</span>
-          </li>
-        {/if}
+          {/if}
+        </li>
       {/each}
     </ul>
 
     <div class="result-actions">
-      <button onclick={retrySame}>同じ問題をもう一度</button>
-      <button onclick={retry}>別の問題でもう一度</button>
-      <button onclick={() => goto('/quiz')}>設定に戻る</button>
+      <button class="btn btn-primary" onclick={retry}>別の問題でもう一度</button>
+      <div class="result-actions-row">
+        <button class="btn btn-secondary" onclick={retrySame}>同じ問題でもう一度</button>
+        {#if correctCount < questions.length}
+          <button class="btn btn-secondary" onclick={retryWrongOnly}>誤答問題でもう一度</button>
+        {/if}
+      </div>
+      <button class="btn btn-muted" onclick={() => goto('/quiz')}>問題設定に戻る</button>
     </div>
   </div>
 {/if}
@@ -301,7 +313,8 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    overflow: hidden;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .quiz-header {
@@ -317,21 +330,21 @@
     left: 0;
     font-size: 13px;
     padding: 4px 10px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-gray-400);
     border-radius: 4px;
     cursor: pointer;
     background: #fff;
-    color: #888;
+    color: var(--color-gray-500);
   }
 
   .quit-btn:hover {
-    background: #f5f5f5;
-    color: #333;
+    background: var(--color-gray-100);
+    color: var(--color-gray-700);
   }
 
   .progress {
     font-size: 13px;
-    color: #888;
+    color: var(--color-gray-500);
   }
 
   .quit-actions {
@@ -339,20 +352,6 @@
     gap: 8px;
     justify-content: center;
     margin-top: 16px;
-  }
-
-  .quit-cancel {
-    padding: 10px 24px;
-    font-size: 14px;
-    font-weight: 600;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    background: #fff;
-    cursor: pointer;
-  }
-
-  .quit-cancel:hover {
-    background: #f5f5f5;
   }
 
   .question {
@@ -373,11 +372,25 @@
     border-radius: 8px;
   }
 
+  .img-retry-btn {
+    padding: 16px 24px;
+    font-size: 14px;
+    color: var(--color-gray-500);
+    background: var(--color-gray-100);
+    border: 1px dashed var(--color-gray-400);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .img-retry-btn:hover {
+    background: var(--color-gray-200);
+  }
+
   .question-text {
     font-size: 18px;
     font-weight: 600;
     padding: 24px;
-    background: #f5f5f5;
+    background: var(--color-gray-100);
     border-radius: 8px;
   }
 
@@ -391,24 +404,24 @@
   .choice {
     padding: 12px;
     font-size: 14px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-gray-400);
     border-radius: 6px;
     cursor: pointer;
     background: #fff;
   }
 
   .choice:hover:not(:disabled) {
-    background: #f5f5f5;
+    background: var(--color-gray-100);
   }
 
   .choice.correct {
-    background: #d4edda;
-    border-color: #28a745;
+    background: var(--color-success-bg);
+    border-color: var(--color-success);
   }
 
   .choice.wrong {
-    background: #f8d7da;
-    border-color: #dc3545;
+    background: var(--color-danger-bg);
+    border-color: var(--color-danger);
   }
 
   .text-answer {
@@ -421,7 +434,7 @@
     flex: 1;
     padding: 10px;
     font-size: 14px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-gray-400);
     border-radius: 4px;
   }
 
@@ -430,26 +443,21 @@
     font-size: 14px;
     border: none;
     border-radius: 4px;
-    background: #2681c8;
+    background: var(--brand);
     color: #fff;
     cursor: pointer;
   }
 
   .text-answer button:disabled {
-    background: #ccc;
+    background: var(--color-gray-400);
     cursor: default;
   }
 
   /* Feedback modal */
   .feedback-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 200;
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: fade-in 0.2s ease-out;
   }
 
   .feedback-modal {
@@ -462,11 +470,11 @@
   }
 
   .feedback-modal.correct {
-    border-top: 4px solid #28a745;
+    border-top: 4px solid var(--color-success);
   }
 
   .feedback-modal.wrong {
-    border-top: 4px solid #dc3545;
+    border-top: 4px solid var(--color-danger);
   }
 
   .feedback-text {
@@ -476,42 +484,17 @@
   }
 
   .feedback-modal.correct .feedback-text {
-    color: #28a745;
+    color: var(--color-success);
   }
 
   .feedback-modal.wrong .feedback-text {
-    color: #dc3545;
+    color: var(--color-danger);
   }
 
   .feedback-answer {
     font-size: 14px;
-    color: #666;
+    color: var(--color-gray-600);
     margin-bottom: 16px;
-  }
-
-  .feedback-btn {
-    padding: 10px 24px;
-    font-size: 14px;
-    font-weight: 600;
-    border: none;
-    border-radius: 6px;
-    background: #2681c8;
-    color: #fff;
-    cursor: pointer;
-  }
-
-  .feedback-btn:hover {
-    background: #1f6fad;
-  }
-
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  @keyframes pop-in {
-    from { transform: scale(0.9); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
   }
 
   /* Result */
@@ -533,63 +516,60 @@
     font-size: 24px;
     font-weight: 700;
     text-align: center;
-    color: #2681c8;
+    color: var(--brand);
   }
 
-  h3 {
-    font-size: 14px;
-    font-weight: 600;
-  }
-
-  .mistakes {
+  .result-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
 
-  .mistakes li {
+  .result-list li {
     display: flex;
     flex-direction: column;
     gap: 4px;
     padding: 12px;
-    background: #f8d7da;
     border-radius: 6px;
     font-size: 13px;
   }
 
-  .mistakes img {
+  .result-list li.correct {
+    background: var(--color-success-bg);
+  }
+
+  .result-list li.wrong {
+    background: var(--color-danger-bg);
+  }
+
+  .result-list img {
     max-height: 120px;
     align-self: flex-start;
     border-radius: 4px;
   }
 
-  .mistakes .a {
+  .result-list .a {
     font-weight: 600;
   }
 
-  .mistakes .wrong-a {
-    color: #888;
+  .result-list .wrong-a {
+    color: var(--color-gray-500);
   }
 
   .result-actions {
     display: flex;
+    flex-direction: column;
     gap: 8px;
-    justify-content: center;
+    align-items: stretch;
   }
 
-  .result-actions button {
-    padding: 10px 20px;
-    font-size: 14px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    cursor: pointer;
-    background: #fff;
+  .result-actions-row {
+    display: flex;
+    gap: 8px;
   }
 
-  .result-actions button:first-child {
-    background: #2681c8;
-    color: #fff;
-    border: none;
+  .result-actions-row :global(.btn) {
+    flex: 1;
   }
 
   @media (max-width: 768px) {

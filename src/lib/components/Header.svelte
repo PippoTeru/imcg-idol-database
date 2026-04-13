@@ -18,7 +18,6 @@
 
 <style>
   header {
-    --brand: #2681c8;
     position: sticky;
     top: 0;
     z-index: 50;

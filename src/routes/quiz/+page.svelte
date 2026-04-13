@@ -5,6 +5,7 @@
   import FilterPanel from '$lib/components/FilterPanel.svelte';
   import { quizFields } from '$lib/quiz';
   import { type Idol, type RangeFilter } from '$lib/columns';
+  import { computeRange, parseNums, filterIdols } from '$lib/utils';
 
   const STORAGE_KEY = 'quiz-settings';
 
@@ -14,16 +15,6 @@
   let zodiac = $state('');
   let birthplace = $state('');
   let hand = $state('');
-
-  function computeRange(values: number[]): RangeFilter {
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    return { min, max, dataMin: min, dataMax: max };
-  }
-
-  function parseNums(arr: string[]): number[] {
-    return arr.map((s) => parseInt(s)).filter((n) => !isNaN(n));
-  }
 
   let age = $state(computeRange(parseNums(idols.map((i) => i.age))));
   let height = $state(computeRange(parseNums(idols.map((i) => i.height))));
@@ -36,55 +27,11 @@
   let nonNumWeight = $state(false);
   let nonNumSizes = $state(false);
 
-  // Filter logic
-  function inRange(val: number | null, r: RangeFilter): boolean {
-    const moved = r.min !== r.dataMin || r.max !== r.dataMax;
-    if (val === null) return !moved;
-    return val >= r.min && val <= r.max;
-  }
-
-  function parseBirthdayToDoy(s: string): number | null {
-    const m = s.match(/(\d+)月(\d+)日/);
-    if (!m) return null;
-    const daysInMonth = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let doy = parseInt(m[2]);
-    for (let i = 1; i < parseInt(m[1]); i++) doy += daysInMonth[i];
-    return doy;
-  }
-
-  let filteredIdols = $derived.by(() => {
-    const parseN = (s: string) => {
-      const n = parseInt(s);
-      return isNaN(n) ? null : n;
-    };
-    return (idols as Idol[]).filter((idol) => {
-      if (bloodType && idol.blood_type !== bloodType) return false;
-      if (zodiac && idol.zodiac !== zodiac) return false;
-      if (birthplace && idol.birthplace !== birthplace) return false;
-      if (hand && idol.dominant_hand !== hand) return false;
-      if (nonNumAge) {
-        if (parseN(idol.age) !== null) return false;
-      } else {
-        if (!inRange(parseN(idol.age), age)) return false;
-      }
-      if (!inRange(parseN(idol.height), height)) return false;
-      if (nonNumWeight) {
-        if (parseN(idol.weight) !== null) return false;
-      } else {
-        if (!inRange(parseN(idol.weight), weight)) return false;
-      }
-      const sizes = idol.three_sizes.split('/');
-      if (nonNumSizes) {
-        if (parseN(sizes[0]) !== null) return false;
-      } else {
-        if (!inRange(parseN(sizes[0]), bust)) return false;
-        if (!inRange(parseN(sizes[1]), waist)) return false;
-        if (!inRange(parseN(sizes[2]), hip)) return false;
-      }
-      if (!inRange(parseBirthdayToDoy(idol.birthday), bday)) return false;
-      return true;
-    });
-  });
+  let filteredIdols = $derived(filterIdols(idols as Idol[], {
+    bloodType, zodiac, birthplace, hand,
+    age, height, weight, bust, waist, hip, bday,
+    nonNumAge, nonNumWeight, nonNumSizes
+  }));
 
   // Quiz settings
   let questionFieldKey = $state('img_detail');
@@ -183,11 +130,11 @@
   </label>
 
   <p>出題対象: {filteredIdols.length}人</p>
-  <button class="filter-btn" onclick={() => (filterOpen = true)}>
+  <button class="btn filter-btn" onclick={() => (filterOpen = true)}>
     <span class="material-symbols-outlined">filter_list</span> フィルタで絞り込む
   </button>
 
-  <button class="start-btn" onclick={startQuiz} disabled={filteredIdols.length === 0}>
+  <button class="btn btn-primary start-btn" onclick={startQuiz} disabled={filteredIdols.length === 0}>
     スタート
   </button>
 </div>
@@ -239,13 +186,13 @@
   .setup input {
     padding: 8px;
     font-size: 14px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-gray-400);
     border-radius: 4px;
   }
 
   .setup p {
     font-size: 13px;
-    color: #888;
+    color: var(--color-gray-500);
   }
 
   .filter-btn {
@@ -254,37 +201,14 @@
     gap: 4px;
     padding: 8px 12px;
     font-size: 13px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    cursor: pointer;
-    background: #fff;
   }
 
   .filter-btn :global(.material-symbols-outlined) {
     font-size: 18px;
   }
 
-  .filter-btn:hover {
-    background: #f5f5f5;
-  }
-
   .start-btn {
     padding: 12px;
     font-size: 15px;
-    font-weight: 600;
-    border: none;
-    border-radius: 6px;
-    background: #2681c8;
-    color: #fff;
-    cursor: pointer;
-  }
-
-  .start-btn:hover {
-    background: #1f6fad;
-  }
-
-  .start-btn:disabled {
-    background: #ccc;
-    cursor: default;
   }
 </style>

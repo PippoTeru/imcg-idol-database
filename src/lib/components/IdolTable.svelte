@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { columns, cvMap, type Idol, type RangeFilter } from '$lib/columns';
+  import { filterIdols, highlight, highlightHtml } from '$lib/utils';
 
   const defaultRange: RangeFilter = { min: -Infinity, max: Infinity, dataMin: -Infinity, dataMax: Infinity };
 
@@ -44,21 +45,6 @@
     tableWidthPx?: number;
   } = $props();
 
-  function inRange(val: number | null, r: RangeFilter): boolean {
-    const moved = r.min !== r.dataMin || r.max !== r.dataMax;
-    if (val === null) return !moved;
-    return val >= r.min && val <= r.max;
-  }
-
-  function parseBirthdayToDoy(s: string): number | null {
-    const m = s.match(/(\d+)月(\d+)日/);
-    if (!m) return null;
-    const daysInMonth = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let doy = parseInt(m[2]);
-    for (let i = 1; i < parseInt(m[1]); i++) doy += daysInMonth[i];
-    return doy;
-  }
-
   // Search - filter idols by keyword (AND, partial match)
   function getAllText(idol: Idol): string {
     const colTexts = columns.map((col) => col.get(idol)).join(' ');
@@ -68,104 +54,26 @@
   }
 
   let filteredIdols = $derived.by(() => {
-    let result = idols;
+    let result = idols as Idol[];
 
     // Keyword filter
     if (keyword.trim()) {
-      const keywords = keyword
-        .trim()
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(Boolean);
+      const keywords = keyword.trim().toLowerCase().split(/\s+/).filter(Boolean);
       result = result.filter((idol) => {
         const text = getAllText(idol).toLowerCase();
         return keywords.every((kw) => text.includes(kw));
       });
     }
 
-    // Select filters
-    if (bloodType) result = result.filter((idol) => idol.blood_type === bloodType);
-    if (zodiac) result = result.filter((idol) => idol.zodiac === zodiac);
-    if (birthplace) result = result.filter((idol) => idol.birthplace === birthplace);
-    if (hand) result = result.filter((idol) => idol.dominant_hand === hand);
-
-    // Range filters
-    const parseN = (s: string) => { const n = parseInt(s); return isNaN(n) ? null : n; };
-    result = result.filter((idol) => {
-      // Age
-      if (nonNumAge) {
-        if (parseN(idol.age) !== null) return false;
-      } else {
-        if (!inRange(parseN(idol.age), age)) return false;
-      }
-
-      if (!inRange(parseN(idol.height), height)) return false;
-
-      // Weight
-      if (nonNumWeight) {
-        if (parseN(idol.weight) !== null) return false;
-      } else {
-        if (!inRange(parseN(idol.weight), weight)) return false;
-      }
-
-      // Sizes
-      const sizes = idol.three_sizes.split('/');
-      if (nonNumSizes) {
-        if (parseN(sizes[0]) !== null) return false;
-      } else {
-        if (!inRange(parseN(sizes[0]), bust)) return false;
-        if (!inRange(parseN(sizes[1]), waist)) return false;
-        if (!inRange(parseN(sizes[2]), hip)) return false;
-      }
-
-      if (!inRange(parseBirthdayToDoy(idol.birthday), bday)) return false;
-      return true;
+    return filterIdols(result, {
+      bloodType, zodiac, birthplace, hand,
+      age, height, weight, bust, waist, hip, bday,
+      nonNumAge, nonNumWeight, nonNumSizes
     });
-
-    return result;
   });
 
-  $effect(() => {
-    filteredCount = filteredIdols.length;
-  });
-
-  $effect(() => {
-    tableWidthPx = tableWidth;
-  });
-
-  // Highlight matching text in plain text
-  function highlight(text: string): string {
-    if (!keyword.trim()) return text;
-    const keywords = keyword
-      .trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean);
-    let result = text;
-    for (const kw of keywords) {
-      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      result = result.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
-    }
-    return result;
-  }
-
-  // Highlight matching text inside HTML (only text outside tags)
-  function highlightHtml(html: string): string {
-    if (!keyword.trim()) return html;
-    const keywords = keyword
-      .trim()
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean);
-    return html.replace(/([^<>]+)(?=<|$)/g, (text) => {
-      let result = text;
-      for (const kw of keywords) {
-        const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        result = result.replace(new RegExp(`(${escaped})`, 'gi'), '<mark>$1</mark>');
-      }
-      return result;
-    });
-  }
+  $effect(() => { filteredCount = filteredIdols.length; });
+  $effect(() => { tableWidthPx = tableWidth; });
 
   // Sort state
   let sortColIdx = $state<number | null>(null);
@@ -294,7 +202,7 @@
       <tr>
         {#each columns as col, colIdx}
           <td class:active-col={sortColIdx === colIdx}
-            >{#if col.html}{@html highlightHtml(col.html(idol))}{:else}{@html highlight(col.get(idol))}{/if}</td
+            >{#if col.html}{@html highlightHtml(col.html(idol), keyword)}{:else}{@html highlight(col.get(idol), keyword)}{/if}</td
           >
         {/each}
       </tr>
@@ -313,7 +221,6 @@
   }
 
   table {
-    --brand: #2681c8;
     font-size: 14px;
     table-layout: fixed;
     border-collapse: collapse;
@@ -377,13 +284,13 @@
   }
 
   td :global(mark) {
-    background: #fff176;
+    background: var(--color-highlight);
     color: inherit;
   }
 
   .no-results {
     font-size: 14px;
-    color: #888;
+    color: var(--color-gray-500);
     padding: 24px 0;
     text-align: center;
   }
