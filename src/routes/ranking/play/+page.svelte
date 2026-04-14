@@ -32,6 +32,7 @@
   let startTime = $state(0);
   let elapsed = $state(0);
   let timerInterval = $state<ReturnType<typeof setInterval> | undefined>(undefined);
+  let showQuitConfirm = $state(false);
 
   function startGame() {
     phase = 'playing';
@@ -102,6 +103,10 @@
 
   // キーボードショートカット
   function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      showQuitConfirm = !showQuitConfirm;
+      return;
+    }
     if (e.key === 'Enter' && showAnswer) {
       nextQuestion();
     }
@@ -163,8 +168,9 @@
 {:else if phase === 'playing' && currentIdol}
   <div class="play">
     <div class="play-header">
-      <span class="timer">{formatTime(elapsed)}</span>
+      <button class="quit-btn" onclick={() => (showQuitConfirm = true)}>中断</button>
       <span class="progress">{currentIdx + 1} / {totalCount}</span>
+      <span class="timer">{formatTime(elapsed)}</span>
     </div>
 
     <div class="question">
@@ -201,6 +207,20 @@
         <button class="btn btn-primary" onclick={nextQuestion}>
           {currentIdx + 1 < totalCount ? '次の問題' : '結果を見る'}
         </button>
+      </div>
+    </div>
+  {/if}
+
+  {#if showQuitConfirm}
+    <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+    <div class="overlay dark feedback-overlay" onclick={() => (showQuitConfirm = false)}>
+      <div class="feedback-modal" onclick={(e) => e.stopPropagation()}>
+        <p class="feedback-text">ランキングモードを中断しますか？</p>
+        <p class="feedback-answer">記録は保存されません</p>
+        <div class="quit-actions">
+          <button class="btn btn-primary" onclick={() => { stopTimer(); goto('/ranking'); }}>中断する</button>
+          <button class="btn" onclick={() => (showQuitConfirm = false)}>続ける</button>
+        </div>
       </div>
     </div>
   {/if}
@@ -273,11 +293,33 @@
     padding: 8px 0;
   }
 
+  .quit-btn {
+    font-size: 13px;
+    padding: 4px 10px;
+    border: 1px solid var(--color-gray-400);
+    border-radius: 4px;
+    cursor: pointer;
+    background: #fff;
+    color: var(--color-gray-500);
+  }
+
+  .quit-btn:hover {
+    background: var(--color-gray-100);
+    color: var(--color-gray-700);
+  }
+
   .timer {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: var(--brand);
+  }
+
+  .quit-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 16px;
   }
 
   .progress {
