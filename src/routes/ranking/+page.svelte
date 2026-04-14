@@ -19,6 +19,12 @@
   let ranking = $state<{ nickname: string; time_ms: number; correct_count: number; total_count: number; played_at: string }[]>([]);
   let history = $state<{ id: number; time_ms: number; correct_count: number; total_count: number; played_at: string }[]>([]);
 
+  // 詳細表示
+  type Detail = { question_idx: number; idol_name: string; correct_answer: string; user_answer: string | null; is_correct: number };
+  let selectedScoreId = $state<number | null>(null);
+  let details = $state<Detail[]>([]);
+  let detailsLoading = $state(false);
+
   onMount(() => {
     const saved = localStorage.getItem(USER_KEY);
     if (saved) {
@@ -90,8 +96,23 @@
     return d.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
+  async function loadDetail(scoreId: number) {
+    if (selectedScoreId === scoreId) {
+      selectedScoreId = null;
+      details = [];
+      return;
+    }
+    detailsLoading = true;
+    selectedScoreId = scoreId;
+    const res = await fetch(`/api/scores/detail?scoreId=${scoreId}`);
+    const data: { details?: Detail[] } = await res.json();
+    details = data.details ?? [];
+    detailsLoading = false;
+  }
+
   $effect(() => {
     if (tab === 'history' && user) loadHistory();
+    if (tab !== 'history') { selectedScoreId = null; details = []; }
   });
 </script>
 
@@ -133,18 +154,19 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>#</th><th>ニックネーム</th><th>タイム</th><th>日時</th></tr>
+          <tr><th>#</th><th>ニックネーム</th><th>正答</th><th>タイム</th><th>日時</th></tr>
         </thead>
         <tbody>
           {#each ranking as r, i}
             <tr class:mine={user && r.nickname === user.nickname}>
               <td class="rank">{i + 1}</td>
               <td>{r.nickname}</td>
+              <td>{r.correct_count}/{r.total_count}</td>
               <td class="time">{formatTime(r.time_ms)}</td>
               <td class="date">{formatDate(r.played_at)}</td>
             </tr>
           {:else}
-            <tr><td colspan="4" class="empty">まだ記録がありません</td></tr>
+            <tr><td colspan="5" class="empty">まだ記録がありません</td></tr>
           {/each}
         </tbody>
       </table>
@@ -159,11 +181,32 @@
         </thead>
         <tbody>
           {#each history as h}
-            <tr>
+            <tr class="history-row" class:expanded={selectedScoreId === h.id} onclick={() => loadDetail(h.id)}>
               <td class="date">{formatDate(h.played_at)}</td>
               <td class="time">{formatTime(h.time_ms)}</td>
               <td>{h.correct_count}/{h.total_count}</td>
             </tr>
+            {#if selectedScoreId === h.id}
+              <tr class="detail-row">
+                <td colspan="3">
+                  {#if detailsLoading}
+                    <p class="detail-loading">読み込み中...</p>
+                  {:else}
+                    <ul class="detail-list">
+                      {#each details as d}
+                        <li class:correct={!!d.is_correct} class:wrong={!d.is_correct}>
+                          <span class="detail-idol">{d.idol_name}</span>
+                          <span class="detail-answer">正解: {d.correct_answer}</span>
+                          {#if !d.is_correct}
+                            <span class="detail-user">回答: {d.user_answer ?? '未回答'}</span>
+                          {/if}
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
+                </td>
+              </tr>
+            {/if}
           {:else}
             <tr><td colspan="3" class="empty">まだプレイ履歴がありません</td></tr>
           {/each}
@@ -336,5 +379,67 @@
     text-align: center;
     color: var(--color-gray-500);
     padding: 24px;
+  }
+
+  /* History detail */
+  .history-row {
+    cursor: pointer;
+  }
+
+  .history-row:hover {
+    background: var(--color-gray-100);
+  }
+
+  .history-row.expanded {
+    background: var(--color-gray-100);
+  }
+
+  .detail-row td {
+    padding: 0;
+  }
+
+  .detail-loading {
+    padding: 12px;
+    text-align: center;
+    color: var(--color-gray-500);
+    font-size: 13px;
+  }
+
+  .detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .detail-list li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .detail-list li.correct {
+    background: var(--color-success-bg);
+  }
+
+  .detail-list li.wrong {
+    background: var(--color-danger-bg);
+  }
+
+  .detail-idol {
+    font-weight: 600;
+  }
+
+  .detail-answer {
+    color: var(--color-gray-600);
+  }
+
+  .detail-user {
+    color: var(--color-danger);
   }
 </style>

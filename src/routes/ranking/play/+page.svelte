@@ -80,6 +80,12 @@
 
   async function saveScore() {
     if (!user) return;
+    const details = allIdols.map((idol, i) => ({
+      idolName: idol.name,
+      correctAnswer: answerField.get(idol),
+      userAnswer: answers[i],
+      isCorrect: answers[i] === answerField.get(idol)
+    }));
     await fetch('/api/scores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -88,7 +94,8 @@
         course: COURSE,
         timeMs: elapsed,
         correctCount,
-        totalCount
+        totalCount,
+        details
       })
     });
   }
@@ -231,10 +238,9 @@
     <p class="final-score">{correctCount} / {totalCount} 問正解</p>
 
     {#if correctCount === totalCount}
-      <p class="perfect">パーフェクト！ランキングに記録されました</p>
-    {:else}
-      <p class="not-perfect">全問正解でランキングに反映されます</p>
+      <p class="perfect">パーフェクト！</p>
     {/if}
+    <p class="recorded">ランキングに記録されました</p>
 
     <div class="result-actions">
       <button class="btn btn-primary" onclick={() => goto('/ranking')}>ランキングを見る</button>
@@ -436,7 +442,7 @@
     color: var(--color-success);
   }
 
-  .not-perfect {
+  .recorded {
     font-size: 14px;
     color: var(--color-gray-500);
   }
