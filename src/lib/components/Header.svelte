@@ -3,7 +3,8 @@
 
   const navLinks = [
     { href: '/idols', label: '一覧・検索' },
-    { href: '/quiz', label: 'クイズ' }
+    { href: '/quiz', label: 'クイズ' },
+    { href: '/ranking', label: 'ランキング' }
   ];
 </script>
 
