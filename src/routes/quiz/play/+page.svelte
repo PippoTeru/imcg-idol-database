@@ -26,7 +26,20 @@
   const INF = -Infinity;
   const PINF = Infinity;
 
-  const targetIdols = filterIdols(idols as Idol[], {
+  // 外部から渡されたアイドル名リスト（ランキング履歴からの遷移等）
+  const PRESET_KEY = 'quiz-preset-idols';
+  const presetParam = params.get('preset');
+  let presetIdols: Idol[] | null = null;
+  if (presetParam && typeof localStorage !== 'undefined') {
+    try {
+      const names: string[] = JSON.parse(localStorage.getItem(PRESET_KEY) ?? '[]');
+      const idolByName = new Map((idols as Idol[]).map((i) => [i.name, i]));
+      presetIdols = names.map((n) => idolByName.get(n)).filter((i): i is Idol => !!i);
+      localStorage.removeItem(PRESET_KEY);
+    } catch { /* ignore */ }
+  }
+
+  const targetIdols = presetIdols ?? filterIdols(idols as Idol[], {
     bloodType: params.get('bloodType') ?? '',
     zodiac: params.get('zodiac') ?? '',
     birthplace: params.get('birthplace') ?? '',

@@ -52,6 +52,22 @@
     loading = false;
   });
 
+  let wrongDetails = $derived(details.filter((d) => !d.is_correct));
+
+  function goQuizWithIdols(idolNames: string[], shuffle: boolean) {
+    const names = shuffle ? [...idolNames].sort(() => Math.random() - 0.5) : idolNames;
+    localStorage.setItem('quiz-preset-idols', JSON.stringify(names));
+    goto(`/quiz/play?q=img_detail&a=furigana&mode=text&count=${names.length}&preset=1`);
+  }
+
+  function allIdolNames() {
+    return details.map((d) => d.idol_name);
+  }
+
+  function wrongIdolNames() {
+    return wrongDetails.map((d) => d.idol_name);
+  }
+
   function formatTime(ms: number): string {
     const sec = Math.floor(ms / 1000);
     const min = Math.floor(sec / 60);
@@ -90,7 +106,17 @@
 
     <div class="result-actions">
       <button class="btn btn-primary" onclick={() => goto('/ranking/play')}>もう一度挑戦する</button>
-      <button class="btn btn-secondary" onclick={() => goto('/ranking')}>ランキングに戻る</button>
+      <div class="result-actions-row">
+        <button class="btn btn-secondary" onclick={() => goQuizWithIdols(allIdolNames(), false)}>同じ問題（同順）</button>
+        <button class="btn btn-secondary" onclick={() => goQuizWithIdols(allIdolNames(), true)}>同じ問題（シャッフル）</button>
+      </div>
+      {#if wrongDetails.length > 0}
+        <div class="result-actions-row">
+          <button class="btn btn-secondary" onclick={() => goQuizWithIdols(wrongIdolNames(), false)}>誤答のみ（同順）</button>
+          <button class="btn btn-secondary" onclick={() => goQuizWithIdols(wrongIdolNames(), true)}>誤答のみ（シャッフル）</button>
+        </div>
+      {/if}
+      <button class="btn btn-muted" onclick={() => goto('/ranking')}>ランキングトップに戻る</button>
     </div>
   </div>
 {/if}
@@ -177,5 +203,14 @@
     flex-direction: column;
     gap: 8px;
     align-items: stretch;
+  }
+
+  .result-actions-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .result-actions-row :global(.btn) {
+    flex: 1;
   }
 </style>
