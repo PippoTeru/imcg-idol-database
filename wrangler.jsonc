@@ -10,5 +10,12 @@
     "directory": ".svelte-kit/cloudflare"
   },
   "workers_dev": true,
-  "preview_urls": true
+  "preview_urls": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "imcg-idol-ranking",
+      "database_id": "85b9e8f4-ef27-44fa-bb95-aa036a5e066b"
+    }
+  ]
 }
