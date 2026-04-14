@@ -187,20 +187,23 @@
       <button class="btn btn-primary" type="submit" disabled={showAnswer || !textInput.trim()}>回答</button>
     </form>
 
-    {#if showAnswer}
-      <div class="inline-feedback" class:correct={isCorrect} class:wrong={!isCorrect}>
+  </div>
+
+  {#if showAnswer}
+    <div class="overlay dark feedback-overlay" role="presentation">
+      <div class="feedback-modal" class:correct={isCorrect} class:wrong={!isCorrect}>
         {#if isCorrect}
-          <span class="fb-mark">○</span>
+          <p class="feedback-text">正解!</p>
         {:else}
-          <span class="fb-mark">✕</span>
-          <span class="fb-answer">正解: {answerField.get(currentIdol)}</span>
+          <p class="feedback-text">不正解...</p>
+          <p class="feedback-answer">正解: {answerField.get(currentIdol)}</p>
         {/if}
-        <button class="btn btn-primary fb-next" onclick={nextQuestion}>
-          {currentIdx + 1 < totalCount ? '次へ' : '結果を見る'}
+        <button class="btn btn-primary" onclick={nextQuestion}>
+          {currentIdx + 1 < totalCount ? '次の問題' : '結果を見る'}
         </button>
       </div>
-    {/if}
-  </div>
+    </div>
+  {/if}
 {:else if phase === 'result'}
   <div class="result">
     <h2>結果</h2>
@@ -312,45 +315,48 @@
     border-radius: 4px;
   }
 
-  /* Inline feedback */
-  .inline-feedback {
+  /* Feedback modal */
+  .feedback-overlay {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 6px;
+    justify-content: center;
+  }
+
+  .feedback-modal {
+    background: #fff;
+    border-radius: 12px;
+    padding: 32px 40px;
+    text-align: center;
+    min-width: 280px;
+    animation: pop-in 0.2s ease-out;
+  }
+
+  .feedback-modal.correct {
+    border-top: 4px solid var(--color-success);
+  }
+
+  .feedback-modal.wrong {
+    border-top: 4px solid var(--color-danger);
+  }
+
+  .feedback-text {
+    font-size: 20px;
+    font-weight: 700;
     margin-bottom: 8px;
   }
 
-  .inline-feedback.correct {
-    background: var(--color-success-bg);
-  }
-
-  .inline-feedback.wrong {
-    background: var(--color-danger-bg);
-  }
-
-  .fb-mark {
-    font-size: 20px;
-    font-weight: 700;
-  }
-
-  .inline-feedback.correct .fb-mark {
+  .feedback-modal.correct .feedback-text {
     color: var(--color-success);
   }
 
-  .inline-feedback.wrong .fb-mark {
+  .feedback-modal.wrong .feedback-text {
     color: var(--color-danger);
   }
 
-  .fb-answer {
+  .feedback-answer {
     font-size: 14px;
-  }
-
-  .fb-next {
-    margin-left: auto;
-    padding: 6px 16px;
-    font-size: 13px;
+    color: var(--color-gray-600);
+    margin-bottom: 16px;
   }
 
   /* Result */
