@@ -5,7 +5,7 @@
   import { quizFields, generateQuiz } from '$lib/quiz';
   import type { Idol, RangeFilter } from '$lib/columns';
   import { filterIdols } from '$lib/utils';
-  import { romajiToHiragana } from '$lib/romaji';
+  import { RomajiState } from '$lib/romaji';
 
   // Parse settings from URL
   const params = page.url.searchParams;
@@ -112,10 +112,9 @@
 
   // Text input
   const useRomaji = answerFieldKey === 'furigana';
+  let romaji = $state(RomajiState.empty());
   let rawInput = $state('');
-  let converted = $derived(useRomaji ? romajiToHiragana(rawInput) : { text: rawInput, pending: '' });
-  let textInput = $derived(useRomaji ? converted.text + converted.pending : rawInput);
-  let submitValue = $derived(useRomaji ? converted.text : rawInput);
+  let submitValue = $derived(useRomaji ? romaji.submitValue : rawInput);
   let textInputEl = $state<HTMLInputElement | undefined>(undefined);
 
   $effect(() => {
@@ -153,6 +152,7 @@
     }
     if (e.key === 'Enter') {
       if (showAnswer) {
+        romaji = RomajiState.empty();
         rawInput = '';
         nextQuestion();
       } else if (useRomaji && !isMultipleChoice && !showAnswer && submitValue.trim()) {
@@ -163,11 +163,11 @@
     // ふりがなモード: IME回避のためキーボードから直接入力
     if (useRomaji && !isMultipleChoice && !showAnswer && !showQuitConfirm) {
       if (e.key === 'Backspace') {
-        rawInput = rawInput.slice(0, -1);
+        romaji = romaji.backspace();
         return;
       }
       if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        rawInput += e.key;
+        romaji = romaji.addChar(e.key);
       }
     }
   }
@@ -279,8 +279,8 @@
       {#if useRomaji}
         <div class="text-answer">
           <div class="romaji-display-box" class:disabled={showAnswer}>
-            {#if rawInput}
-              <span class="romaji-text">{textInput}</span>
+            {#if romaji.display}
+              <span class="romaji-text">{romaji.display}</span>
             {:else if !showAnswer}
               <span class="romaji-placeholder">ふりがなを入力（ローマ字）</span>
             {/if}
@@ -312,7 +312,7 @@
           <p class="feedback-text">不正解...</p>
           <p class="feedback-answer">正解: {answerField.get(currentQuestion.idol)}</p>
         {/if}
-        <button class="btn btn-primary" onclick={() => { rawInput = ''; nextQuestion(); }}>
+        <button class="btn btn-primary" onclick={() => { romaji = RomajiState.empty(); rawInput = ''; nextQuestion(); }}>
           {currentIdx + 1 < questions.length ? '次の問題' : '結果を見る'}
         </button>
       </div>

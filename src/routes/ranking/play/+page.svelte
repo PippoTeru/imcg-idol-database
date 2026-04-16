@@ -3,7 +3,7 @@
   import idols from '$lib/data/idol_data.json';
   import type { Idol } from '$lib/columns';
   import { quizFields } from '$lib/quiz';
-  import { romajiToHiragana } from '$lib/romaji';
+  import { RomajiState } from '$lib/romaji';
 
   const USER_KEY = 'ranking-user';
   const COURSE = 'furigana';
@@ -25,12 +25,8 @@
   let phase = $state<'ready' | 'playing' | 'result'>('ready');
   let currentIdx = $state(0);
   let answers = $state<(string | null)[]>(new Array(totalCount).fill(null));
-  let rawInput = $state('');
+  let romaji = $state(RomajiState.empty());
   let showAnswer = $state(false);
-
-  // ローマ字→ひらがな変換
-  let converted = $derived(romajiToHiragana(rawInput));
-  let textInput = $derived(converted.text + converted.pending);
 
   // タイマー
   let startTime = $state(0);
@@ -57,13 +53,13 @@
   let currentIdol = $derived(allIdols[currentIdx]);
 
   function submitAnswer() {
-    answers[currentIdx] = converted.text.trim();
+    answers[currentIdx] = romaji.submitValue.trim();
     showAnswer = true;
   }
 
   function nextQuestion() {
     showAnswer = false;
-    rawInput = '';
+    romaji = RomajiState.empty();
     if (currentIdx + 1 < totalCount) {
       currentIdx++;
     } else {
@@ -113,18 +109,18 @@
     if (e.key === 'Enter') {
       if (showAnswer) {
         nextQuestion();
-      } else if (converted.text.trim()) {
+      } else if (romaji.submitValue.trim()) {
         submitAnswer();
       }
       return;
     }
     if (showAnswer || showQuitConfirm) return;
     if (e.key === 'Backspace') {
-      rawInput = rawInput.slice(0, -1);
+      romaji = romaji.backspace();
       return;
     }
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      rawInput += e.key;
+      romaji = romaji.addChar(e.key);
     }
   }
 
@@ -195,13 +191,13 @@
 
     <div class="answer-area">
       <div class="romaji-display-box" class:disabled={showAnswer}>
-        {#if rawInput}
-          <span class="romaji-text">{textInput}</span>
+        {#if romaji.display}
+          <span class="romaji-text">{romaji.display}</span>
         {:else if !showAnswer}
           <span class="romaji-placeholder">ふりがなを入力（ローマ字）</span>
         {/if}
       </div>
-      <button class="btn btn-primary" disabled={showAnswer || !converted.text.trim()} onclick={submitAnswer}>回答</button>
+      <button class="btn btn-primary" disabled={showAnswer || !romaji.submitValue.trim()} onclick={submitAnswer}>回答</button>
     </div>
 
   </div>
