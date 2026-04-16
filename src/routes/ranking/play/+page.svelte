@@ -26,7 +26,6 @@
   let currentIdx = $state(0);
   let answers = $state<(string | null)[]>(new Array(totalCount).fill(null));
   let rawInput = $state('');
-  let textInputEl = $state<HTMLInputElement | undefined>(undefined);
   let showAnswer = $state(false);
 
   // ローマ字→ひらがな変換
@@ -105,22 +104,27 @@
     });
   }
 
-  // フォーカス管理
-  $effect(() => {
-    currentIdx;
-    if (phase === 'playing' && !showAnswer && textInputEl) {
-      textInputEl.focus();
-    }
-  });
-
-  // キーボードショートカット
+  // キーボード入力（IMEを完全に回避するためinput要素を使わない）
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       showQuitConfirm = !showQuitConfirm;
       return;
     }
-    if (e.key === 'Enter' && showAnswer) {
-      nextQuestion();
+    if (e.key === 'Enter') {
+      if (showAnswer) {
+        nextQuestion();
+      } else if (converted.text.trim()) {
+        submitAnswer();
+      }
+      return;
+    }
+    if (showAnswer || showQuitConfirm) return;
+    if (e.key === 'Backspace') {
+      rawInput = rawInput.slice(0, -1);
+      return;
+    }
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      rawInput += e.key;
     }
   }
 
@@ -189,29 +193,16 @@
       <img src={questionField.get(currentIdol)} alt="問題" />
     </div>
 
-    <form
-      class="answer-form"
-      onsubmit={(e) => { e.preventDefault(); submitAnswer(); }}
-    >
-      <!-- svelte-ignore a11y_autofocus -->
-      <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-      <div class="romaji-input" class:disabled={showAnswer} onclick={() => textInputEl?.focus()}>
-        <input
-          type="text"
-          bind:this={textInputEl}
-          bind:value={rawInput}
-          inputmode="url"
-          autocomplete="off"
-          disabled={showAnswer}
-          autofocus
-        />
-        <span class="romaji-display">{rawInput ? textInput : ''}</span>
-        {#if !rawInput && !showAnswer}
+    <div class="answer-area">
+      <div class="romaji-display-box" class:disabled={showAnswer}>
+        {#if rawInput}
+          <span class="romaji-text">{textInput}</span>
+        {:else if !showAnswer}
           <span class="romaji-placeholder">ふりがなを入力（ローマ字）</span>
         {/if}
       </div>
-      <button class="btn btn-primary" type="submit" disabled={showAnswer || !converted.text.trim()}>回答</button>
-    </form>
+      <button class="btn btn-primary" disabled={showAnswer || !converted.text.trim()} onclick={submitAnswer}>回答</button>
+    </div>
 
   </div>
 
@@ -362,53 +353,32 @@
     border-radius: 8px;
   }
 
-  .answer-form {
+  .answer-area {
     display: flex;
     gap: 8px;
     padding: 12px 0;
   }
 
-  .romaji-input {
+  .romaji-display-box {
     flex: 1;
-    position: relative;
+    padding: 10px;
+    font-size: 14px;
     border: 1px solid var(--color-gray-400);
     border-radius: 4px;
-    overflow: hidden;
+    min-height: 1.5em;
   }
 
-  .romaji-input.disabled {
+  .romaji-display-box.disabled {
     opacity: 0.5;
   }
 
-  .romaji-display {
-    display: block;
-    padding: 10px;
+  .romaji-text {
     font-size: 14px;
-    min-height: 1.5em;
-    pointer-events: none;
-  }
-
-  .romaji-input input {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    padding: 10px;
-    font-size: 14px;
-    border: none;
-    background: transparent;
-    color: transparent;
-    caret-color: black;
-    outline: none;
   }
 
   .romaji-placeholder {
-    position: absolute;
-    inset: 0;
-    padding: 10px;
     font-size: 14px;
     color: var(--color-gray-400);
-    pointer-events: none;
   }
 
   /* Feedback modal */

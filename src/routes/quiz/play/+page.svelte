@@ -120,14 +120,14 @@
 
   $effect(() => {
     currentIdx;
-    if (phase === 'playing' && !isMultipleChoice && textInputEl) {
+    if (phase === 'playing' && !isMultipleChoice && !useRomaji && textInputEl) {
       textInputEl.focus();
     }
   });
 
   // キーボード表示時に入力欄を見える位置にスクロール
   $effect(() => {
-    if (!textInputEl) return;
+    if (useRomaji || !textInputEl) return;
     const scrollIntoView = () => {
       setTimeout(() => {
         textInputEl?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -151,9 +151,24 @@
       showQuitConfirm = !showQuitConfirm;
       return;
     }
-    if (e.key === 'Enter' && showAnswer) {
-      rawInput = '';
-      nextQuestion();
+    if (e.key === 'Enter') {
+      if (showAnswer) {
+        rawInput = '';
+        nextQuestion();
+      } else if (useRomaji && !isMultipleChoice && !showAnswer && submitValue.trim()) {
+        submitAnswer(submitValue.trim());
+      }
+      return;
+    }
+    // ふりがなモード: IME回避のためキーボードから直接入力
+    if (useRomaji && !isMultipleChoice && !showAnswer && !showQuitConfirm) {
+      if (e.key === 'Backspace') {
+        rawInput = rawInput.slice(0, -1);
+        return;
+      }
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        rawInput += e.key;
+      }
     }
   }
 
@@ -261,36 +276,30 @@
         {/each}
       </div>
     {:else}
-      <form
-        class="text-answer"
-        onsubmit={(e) => {
-          e.preventDefault();
-          submitAnswer(submitValue.trim());
-        }}
-      >
-        <!-- svelte-ignore a11y_autofocus -->
-        {#if useRomaji}
-          <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-          <div class="romaji-input" class:disabled={showAnswer} onclick={() => textInputEl?.focus()}>
-            <input
-              type="text"
-              bind:this={textInputEl}
-              bind:value={rawInput}
-              inputmode="url"
-              autocomplete="off"
-              disabled={showAnswer}
-              autofocus
-            />
-            <span class="romaji-display">{rawInput ? textInput : ''}</span>
-            {#if !rawInput && !showAnswer}
+      {#if useRomaji}
+        <div class="text-answer">
+          <div class="romaji-display-box" class:disabled={showAnswer}>
+            {#if rawInput}
+              <span class="romaji-text">{textInput}</span>
+            {:else if !showAnswer}
               <span class="romaji-placeholder">ふりがなを入力（ローマ字）</span>
             {/if}
           </div>
-        {:else}
+          <button class="btn-submit" disabled={showAnswer || !submitValue.trim()} onclick={() => submitAnswer(submitValue.trim())}>回答</button>
+        </div>
+      {:else}
+        <form
+          class="text-answer"
+          onsubmit={(e) => {
+            e.preventDefault();
+            submitAnswer(submitValue.trim());
+          }}
+        >
+          <!-- svelte-ignore a11y_autofocus -->
           <input type="text" bind:this={textInputEl} bind:value={rawInput} placeholder="答えを入力" disabled={showAnswer} autofocus autocomplete="off" />
-        {/if}
-        <button type="submit" disabled={showAnswer || !submitValue.trim()}>回答</button>
-      </form>
+          <button type="submit" disabled={showAnswer || !submitValue.trim()}>回答</button>
+        </form>
+      {/if}
     {/if}
   </div>
 
@@ -496,47 +505,41 @@
     border-radius: 4px;
   }
 
-  .romaji-input {
+  .romaji-display-box {
     flex: 1;
-    position: relative;
+    padding: 10px;
+    font-size: 14px;
     border: 1px solid var(--color-gray-400);
     border-radius: 4px;
-    overflow: hidden;
+    min-height: 1.5em;
   }
 
-  .romaji-input.disabled {
+  .romaji-display-box.disabled {
     opacity: 0.5;
   }
 
-  .romaji-display {
-    display: block;
-    padding: 10px;
+  .romaji-text {
     font-size: 14px;
-    min-height: 1.5em;
-    pointer-events: none;
-  }
-
-  .romaji-input input {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    padding: 10px;
-    font-size: 14px;
-    border: none;
-    background: transparent;
-    color: transparent;
-    caret-color: black;
-    outline: none;
   }
 
   .romaji-placeholder {
-    position: absolute;
-    inset: 0;
-    padding: 10px;
     font-size: 14px;
     color: var(--color-gray-400);
-    pointer-events: none;
+  }
+
+  .btn-submit {
+    padding: 10px 16px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    background: var(--brand);
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .btn-submit:disabled {
+    background: var(--color-gray-400);
+    cursor: default;
   }
 
   .text-answer button {
