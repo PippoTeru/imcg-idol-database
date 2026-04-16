@@ -5,7 +5,14 @@
   import { quizFields, generateQuiz } from '$lib/quiz';
   import type { Idol, RangeFilter } from '$lib/columns';
   import { filterIdols } from '$lib/utils';
+  import { onMount } from 'svelte';
   import { RomajiState } from '$lib/romaji';
+  import FlickKeyboard from '$lib/components/FlickKeyboard.svelte';
+
+  let isMobile = $state(false);
+  onMount(() => {
+    isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  });
 
   // Parse settings from URL
   const params = page.url.searchParams;
@@ -113,8 +120,15 @@
   // Text input
   const useRomaji = answerFieldKey === 'furigana';
   let romaji = $state(RomajiState.empty());
+  let flickText = $state('');
+  let flickKeyboard = $state<FlickKeyboard | undefined>(undefined);
   let rawInput = $state('');
-  let submitValue = $derived(useRomaji ? romaji.submitValue : rawInput);
+  let submitValue = $derived(
+    useRomaji ? (isMobile ? flickText : romaji.submitValue) : rawInput
+  );
+  let displayText = $derived(
+    useRomaji ? (isMobile ? flickText : romaji.display) : rawInput
+  );
   let textInputEl = $state<HTMLInputElement | undefined>(undefined);
 
   $effect(() => {
@@ -153,6 +167,7 @@
     if (e.key === 'Enter') {
       if (showAnswer) {
         romaji = RomajiState.empty();
+        flickText = '';
         rawInput = '';
         nextQuestion();
       } else if (useRomaji && !isMultipleChoice && !showAnswer && submitValue.trim()) {
@@ -279,14 +294,25 @@
       {#if useRomaji}
         <div class="text-answer">
           <div class="romaji-display-box" class:disabled={showAnswer}>
-            {#if romaji.display}
-              <span class="romaji-text">{romaji.display}</span>
+            {#if displayText}
+              <span class="romaji-text">{displayText}</span>
             {:else if !showAnswer}
-              <span class="romaji-placeholder">ふりがなを入力（ローマ字）</span>
+              <span class="romaji-placeholder">{isMobile ? 'ふりがなを入力' : 'ふりがなを入力（ローマ字）'}</span>
             {/if}
           </div>
-          <button class="btn-submit" disabled={showAnswer || !submitValue.trim()} onclick={() => submitAnswer(submitValue.trim())}>回答</button>
+          {#if !isMobile}
+            <button class="btn-submit" disabled={showAnswer || !submitValue.trim()} onclick={() => submitAnswer(submitValue.trim())}>回答</button>
+          {/if}
         </div>
+        {#if isMobile}
+          <FlickKeyboard
+            bind:this={flickKeyboard}
+            disabled={showAnswer}
+            oninput={(ch) => { if (flickKeyboard) flickText = flickKeyboard.processChar(flickText, ch); }}
+            onbackspace={() => { flickText = flickText.slice(0, -1); }}
+            onsubmit={() => { if (submitValue.trim()) submitAnswer(submitValue.trim()); }}
+          />
+        {/if}
       {:else}
         <form
           class="text-answer"
@@ -312,7 +338,7 @@
           <p class="feedback-text">不正解...</p>
           <p class="feedback-answer">正解: {answerField.get(currentQuestion.idol)}</p>
         {/if}
-        <button class="btn btn-primary" onclick={() => { romaji = RomajiState.empty(); rawInput = ''; nextQuestion(); }}>
+        <button class="btn btn-primary" onclick={() => { romaji = RomajiState.empty(); flickText = ''; rawInput = ''; nextQuestion(); }}>
           {currentIdx + 1 < questions.length ? '次の問題' : '結果を見る'}
         </button>
       </div>

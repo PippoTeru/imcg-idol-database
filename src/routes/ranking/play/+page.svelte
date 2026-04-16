@@ -1,11 +1,19 @@
 <script lang="ts">
   import { beforeNavigate, goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   import idols from '$lib/data/idol_data.json';
   import type { Idol } from '$lib/columns';
   import { quizFields } from '$lib/quiz';
   import { RomajiState } from '$lib/romaji';
+  import FlickKeyboard from '$lib/components/FlickKeyboard.svelte';
 
   const USER_KEY = 'ranking-user';
+
+  // デバイス判定（タッチデバイス = スマホ）
+  let isMobile = $state(false);
+  onMount(() => {
+    isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  });
   const COURSE = 'furigana';
 
   const questionField = quizFields.find((f) => f.key === 'img_detail')!;
@@ -26,6 +34,8 @@
   let currentIdx = $state(0);
   let answers = $state<(string | null)[]>(new Array(totalCount).fill(null));
   let romaji = $state(RomajiState.empty());
+  let flickText = $state('');
+  let flickKeyboard = $state<FlickKeyboard | undefined>(undefined);
   let showAnswer = $state(false);
 
   // タイマー
@@ -51,15 +61,18 @@
   }
 
   let currentIdol = $derived(allIdols[currentIdx]);
+  let currentAnswer = $derived(isMobile ? flickText : romaji.submitValue);
+  let displayText = $derived(isMobile ? flickText : romaji.display);
 
   function submitAnswer() {
-    answers[currentIdx] = romaji.submitValue.trim();
+    answers[currentIdx] = currentAnswer.trim();
     showAnswer = true;
   }
 
   function nextQuestion() {
     showAnswer = false;
     romaji = RomajiState.empty();
+    flickText = '';
     if (currentIdx + 1 < totalCount) {
       currentIdx++;
     } else {
@@ -191,15 +204,26 @@
 
     <div class="answer-area">
       <div class="romaji-display-box" class:disabled={showAnswer}>
-        {#if romaji.display}
-          <span class="romaji-text">{romaji.display}</span>
+        {#if displayText}
+          <span class="romaji-text">{displayText}</span>
         {:else if !showAnswer}
-          <span class="romaji-placeholder">ふりがなを入力（ローマ字）</span>
+          <span class="romaji-placeholder">{isMobile ? 'ふりがなを入力' : 'ふりがなを入力（ローマ字）'}</span>
         {/if}
       </div>
-      <button class="btn btn-primary" disabled={showAnswer || !romaji.submitValue.trim()} onclick={submitAnswer}>回答</button>
+      {#if !isMobile}
+        <button class="btn btn-primary" disabled={showAnswer || !currentAnswer.trim()} onclick={submitAnswer}>回答</button>
+      {/if}
     </div>
 
+    {#if isMobile}
+      <FlickKeyboard
+        bind:this={flickKeyboard}
+        disabled={showAnswer}
+        oninput={(ch) => { if (flickKeyboard) flickText = flickKeyboard.processChar(flickText, ch); }}
+        onbackspace={() => { flickText = flickText.slice(0, -1); }}
+        onsubmit={() => { if (currentAnswer.trim()) submitAnswer(); }}
+      />
+    {/if}
   </div>
 
   {#if showAnswer}
