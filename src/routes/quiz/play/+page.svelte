@@ -5,6 +5,7 @@
   import { quizFields, generateQuiz } from '$lib/quiz';
   import type { Idol, RangeFilter } from '$lib/columns';
   import { filterIdols } from '$lib/utils';
+  import { romajiToHiragana } from '$lib/romaji';
 
   // Parse settings from URL
   const params = page.url.searchParams;
@@ -110,7 +111,11 @@
   let imgError = $state(false);
 
   // Text input
-  let textInput = $state('');
+  const useRomaji = answerFieldKey === 'furigana';
+  let rawInput = $state('');
+  let converted = $derived(useRomaji ? romajiToHiragana(rawInput) : { text: rawInput, pending: '' });
+  let textInput = $derived(useRomaji ? converted.text + converted.pending : rawInput);
+  let submitValue = $derived(useRomaji ? converted.text : rawInput);
   let textInputEl = $state<HTMLInputElement | undefined>(undefined);
 
   $effect(() => {
@@ -147,7 +152,7 @@
       return;
     }
     if (e.key === 'Enter' && showAnswer) {
-      textInput = '';
+      rawInput = '';
       nextQuestion();
     }
   }
@@ -260,12 +265,30 @@
         class="text-answer"
         onsubmit={(e) => {
           e.preventDefault();
-          submitAnswer(textInput);
+          submitAnswer(submitValue.trim());
         }}
       >
         <!-- svelte-ignore a11y_autofocus -->
-        <input type="text" bind:this={textInputEl} bind:value={textInput} placeholder="答えを入力" disabled={showAnswer} autofocus />
-        <button type="submit" disabled={showAnswer || !textInput.trim()}>回答</button>
+        {#if useRomaji}
+          <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+          <div class="romaji-input" class:disabled={showAnswer} onclick={() => textInputEl?.focus()}>
+            <input
+              type="text"
+              bind:this={textInputEl}
+              bind:value={rawInput}
+              autocomplete="off"
+              disabled={showAnswer}
+              autofocus
+            />
+            <span class="romaji-display">{rawInput ? textInput : ''}</span>
+            {#if !rawInput && !showAnswer}
+              <span class="romaji-placeholder">ふりがなを入力（ローマ字）</span>
+            {/if}
+          </div>
+        {:else}
+          <input type="text" bind:this={textInputEl} bind:value={rawInput} placeholder="答えを入力" disabled={showAnswer} autofocus autocomplete="off" />
+        {/if}
+        <button type="submit" disabled={showAnswer || !submitValue.trim()}>回答</button>
       </form>
     {/if}
   </div>
@@ -279,7 +302,7 @@
           <p class="feedback-text">不正解...</p>
           <p class="feedback-answer">正解: {answerField.get(currentQuestion.idol)}</p>
         {/if}
-        <button class="btn btn-primary" onclick={() => { textInput = ''; nextQuestion(); }}>
+        <button class="btn btn-primary" onclick={() => { rawInput = ''; nextQuestion(); }}>
           {currentIdx + 1 < questions.length ? '次の問題' : '結果を見る'}
         </button>
       </div>
@@ -470,6 +493,49 @@
     font-size: 14px;
     border: 1px solid var(--color-gray-400);
     border-radius: 4px;
+  }
+
+  .romaji-input {
+    flex: 1;
+    position: relative;
+    border: 1px solid var(--color-gray-400);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .romaji-input.disabled {
+    opacity: 0.5;
+  }
+
+  .romaji-display {
+    display: block;
+    padding: 10px;
+    font-size: 14px;
+    min-height: 1.5em;
+    pointer-events: none;
+  }
+
+  .romaji-input input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    font-size: 14px;
+    border: none;
+    background: transparent;
+    color: transparent;
+    caret-color: black;
+    outline: none;
+  }
+
+  .romaji-placeholder {
+    position: absolute;
+    inset: 0;
+    padding: 10px;
+    font-size: 14px;
+    color: var(--color-gray-400);
+    pointer-events: none;
   }
 
   .text-answer button {
