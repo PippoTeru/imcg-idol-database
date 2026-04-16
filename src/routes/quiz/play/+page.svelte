@@ -295,8 +295,13 @@
         <div class="text-answer">
           <div class="romaji-display-box" class:disabled={showAnswer}>
             {#if displayText}
-              <span class="romaji-text">{displayText}</span>
+              {#if isMobile}
+                <span class="romaji-text">{displayText.slice(0, flickBuffer.cursor)}</span><span class="caret"></span><span class="romaji-text">{displayText.slice(flickBuffer.cursor)}</span>
+              {:else}
+                <span class="romaji-text">{displayText}</span><span class="caret"></span>
+              {/if}
             {:else if !showAnswer}
+              <span class="caret"></span>
               <span class="romaji-placeholder">{isMobile ? 'ふりがなを入力' : 'ふりがなを入力（ローマ字）'}</span>
             {/if}
           </div>
@@ -536,6 +541,7 @@
     border: 1px solid var(--color-gray-400);
     border-radius: 4px;
     min-height: 1.5em;
+    line-height: 1.5;
   }
 
   .romaji-display-box.disabled {
@@ -544,6 +550,21 @@
 
   .romaji-text {
     font-size: 14px;
+  }
+
+  .caret {
+    display: inline-block;
+    width: 2px;
+    height: 1.2em;
+    background: var(--brand);
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+    margin: 0 -1px;
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    50.01%, 100% { opacity: 0; }
   }
 
   .romaji-placeholder {
