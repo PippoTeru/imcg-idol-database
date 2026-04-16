@@ -200,6 +200,7 @@
           type="text"
           bind:this={textInputEl}
           bind:value={rawInput}
+          inputmode="url"
           autocomplete="off"
           disabled={showAnswer}
           autofocus
