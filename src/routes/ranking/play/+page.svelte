@@ -5,6 +5,7 @@
   import type { Idol } from '$lib/columns';
   import { quizFields } from '$lib/quiz';
   import { RomajiState } from '$lib/romaji';
+  import { TextBuffer } from '$lib/textBuffer';
   import FlickKeyboard from '$lib/components/FlickKeyboard.svelte';
 
   const USER_KEY = 'ranking-user';
@@ -34,8 +35,7 @@
   let currentIdx = $state(0);
   let answers = $state<(string | null)[]>(new Array(totalCount).fill(null));
   let romaji = $state(RomajiState.empty());
-  let flickText = $state('');
-  let flickKeyboard = $state<FlickKeyboard | undefined>(undefined);
+  let flickBuffer = $state(TextBuffer.empty());
   let showAnswer = $state(false);
 
   // タイマー
@@ -61,8 +61,8 @@
   }
 
   let currentIdol = $derived(allIdols[currentIdx]);
-  let currentAnswer = $derived(isMobile ? flickText : romaji.submitValue);
-  let displayText = $derived(isMobile ? flickText : romaji.display);
+  let currentAnswer = $derived(isMobile ? flickBuffer.text : romaji.submitValue);
+  let displayText = $derived(isMobile ? flickBuffer.text : romaji.display);
 
   function submitAnswer() {
     answers[currentIdx] = currentAnswer.trim();
@@ -72,7 +72,7 @@
   function nextQuestion() {
     showAnswer = false;
     romaji = RomajiState.empty();
-    flickText = '';
+    flickBuffer = TextBuffer.empty();
     if (currentIdx + 1 < totalCount) {
       currentIdx++;
     } else {
@@ -217,10 +217,8 @@
 
     {#if isMobile}
       <FlickKeyboard
-        bind:this={flickKeyboard}
+        bind:buffer={flickBuffer}
         disabled={showAnswer}
-        oninput={(ch) => { if (flickKeyboard) flickText = flickKeyboard.processChar(flickText, ch); }}
-        onbackspace={() => { flickText = flickText.slice(0, -1); }}
         onsubmit={() => { if (currentAnswer.trim()) submitAnswer(); }}
       />
     {/if}

@@ -7,6 +7,7 @@
   import { filterIdols } from '$lib/utils';
   import { onMount } from 'svelte';
   import { RomajiState } from '$lib/romaji';
+  import { TextBuffer } from '$lib/textBuffer';
   import FlickKeyboard from '$lib/components/FlickKeyboard.svelte';
 
   let isMobile = $state(false);
@@ -120,14 +121,13 @@
   // Text input
   const useRomaji = answerFieldKey === 'furigana';
   let romaji = $state(RomajiState.empty());
-  let flickText = $state('');
-  let flickKeyboard = $state<FlickKeyboard | undefined>(undefined);
+  let flickBuffer = $state(TextBuffer.empty());
   let rawInput = $state('');
   let submitValue = $derived(
-    useRomaji ? (isMobile ? flickText : romaji.submitValue) : rawInput
+    useRomaji ? (isMobile ? flickBuffer.text : romaji.submitValue) : rawInput
   );
   let displayText = $derived(
-    useRomaji ? (isMobile ? flickText : romaji.display) : rawInput
+    useRomaji ? (isMobile ? flickBuffer.text : romaji.display) : rawInput
   );
   let textInputEl = $state<HTMLInputElement | undefined>(undefined);
 
@@ -167,7 +167,7 @@
     if (e.key === 'Enter') {
       if (showAnswer) {
         romaji = RomajiState.empty();
-        flickText = '';
+        flickBuffer = TextBuffer.empty();
         rawInput = '';
         nextQuestion();
       } else if (useRomaji && !isMultipleChoice && !showAnswer && submitValue.trim()) {
@@ -306,10 +306,8 @@
         </div>
         {#if isMobile}
           <FlickKeyboard
-            bind:this={flickKeyboard}
+            bind:buffer={flickBuffer}
             disabled={showAnswer}
-            oninput={(ch) => { if (flickKeyboard) flickText = flickKeyboard.processChar(flickText, ch); }}
-            onbackspace={() => { flickText = flickText.slice(0, -1); }}
             onsubmit={() => { if (submitValue.trim()) submitAnswer(submitValue.trim()); }}
           />
         {/if}
@@ -338,7 +336,7 @@
           <p class="feedback-text">不正解...</p>
           <p class="feedback-answer">正解: {answerField.get(currentQuestion.idol)}</p>
         {/if}
-        <button class="btn btn-primary" onclick={() => { romaji = RomajiState.empty(); flickText = ''; rawInput = ''; nextQuestion(); }}>
+        <button class="btn btn-primary" onclick={() => { romaji = RomajiState.empty(); flickBuffer = TextBuffer.empty(); rawInput = ''; nextQuestion(); }}>
           {currentIdx + 1 < questions.length ? '次の問題' : '結果を見る'}
         </button>
       </div>
