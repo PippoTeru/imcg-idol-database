@@ -330,7 +330,7 @@
       <FlickKeyboard
         bind:buffer={flickBuffer}
         disabled={showAnswer}
-        onsubmit={() => { if (submitValue.trim()) submitAnswer(submitValue.trim()); }}
+        onsubmit={() => { if (flickBuffer.text.trim()) submitAnswer(flickBuffer.text.trim()); }}
       />
     {/if}
   </div>

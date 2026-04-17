@@ -226,7 +226,7 @@
       <FlickKeyboard
         bind:buffer={flickBuffer}
         disabled={showAnswer}
-        onsubmit={() => { if (currentAnswer.trim()) submitAnswer(); }}
+        onsubmit={() => { if (flickBuffer.text.trim()) { answers[currentIdx] = flickBuffer.text.trim(); showAnswer = true; } }}
       />
     {/if}
   </div>
