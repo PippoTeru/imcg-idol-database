@@ -308,8 +308,8 @@
   .grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 4px;
-    padding: 4px;
+    gap: 0;
+    padding: 4px 0 0 0;
   }
 
   .flick-key,
