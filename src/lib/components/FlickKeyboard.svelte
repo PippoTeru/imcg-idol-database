@@ -319,7 +319,7 @@
     font-size: 18px;
     font-weight: 500;
     border: 1px solid var(--color-gray-300);
-    border-radius: 6px;
+    border-radius: 0;
     background: #fff;
     cursor: pointer;
     display: flex;

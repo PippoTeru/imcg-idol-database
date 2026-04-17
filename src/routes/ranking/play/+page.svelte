@@ -220,14 +220,15 @@
       {/if}
     </div>
 
-    {#if isMobile}
-      <FlickKeyboard
-        bind:buffer={flickBuffer}
-        disabled={showAnswer}
-        onsubmit={() => { if (currentAnswer.trim()) submitAnswer(); }}
-      />
-    {/if}
   </div>
+
+  {#if isMobile}
+    <FlickKeyboard
+      bind:buffer={flickBuffer}
+      disabled={showAnswer}
+      onsubmit={() => { if (currentAnswer.trim()) submitAnswer(); }}
+    />
+  {/if}
 
   {#if showAnswer}
     <div class="overlay dark feedback-overlay" role="presentation">
