@@ -246,82 +246,92 @@
 
 {#if phase === 'playing' && currentQuestion}
   <div class="quiz">
-    <div class="quiz-header">
-      <button class="quit-btn" onclick={() => (showQuitConfirm = true)}>中断</button>
-      <p class="progress">{currentIdx + 1} / {questions.length}</p>
-    </div>
-
-    <div class="question">
-      {#if questionField.type === 'image'}
-        {#if imgError}
-          <button
-            class="img-retry-btn"
-            onclick={() => {
-              imgError = false;
-            }}
-          >読み込み失敗　タップで再試行</button>
-        {:else}
-          {#key `${currentIdx}-${imgError}`}
-            <img
-              src={questionField.get(currentQuestion.idol)}
-              alt="問題"
-              onerror={() => { imgError = true; }}
-            />
-          {/key}
-        {/if}
-      {:else}
-        <p class="question-text">{questionField.get(currentQuestion.idol)}</p>
-      {/if}
-    </div>
-
-    {#if isMultipleChoice && currentQuestion.choices}
-      <div class="choices">
-        {#each currentQuestion.choices as choice}
-          <button
-            class="choice"
-            class:correct={showAnswer && choice === answerField.get(currentQuestion.idol)}
-            class:wrong={showAnswer &&
-              answers[currentIdx] === choice &&
-              choice !== answerField.get(currentQuestion.idol)}
-            disabled={showAnswer}
-            onclick={() => submitAnswer(choice)}
-          >
-            {choice}
-          </button>
-        {/each}
+    <div class="quiz-content">
+      <div class="quiz-header">
+        <button class="quit-btn" onclick={() => (showQuitConfirm = true)}>中断</button>
+        <p class="progress">{currentIdx + 1} / {questions.length}</p>
       </div>
-    {:else}
-      {#if useRomaji}
-        <div class="text-answer">
-          <div class="romaji-display-box" class:disabled={showAnswer}>
-            {#if displayText}
-              {#if isMobile}
-                <span class="romaji-text">{displayText.slice(0, flickBuffer.cursor)}</span><span class="caret"></span><span class="romaji-text">{displayText.slice(flickBuffer.cursor)}</span>
-              {:else}
-                <span class="romaji-text">{displayText}</span><span class="caret"></span>
-              {/if}
-            {:else if !showAnswer}
-              <span class="caret"></span>
-              <span class="romaji-placeholder">{isMobile ? 'ふりがなを入力' : 'ふりがなを入力（ローマ字）'}</span>
-            {/if}
-          </div>
-          {#if !isMobile}
-            <button class="btn-submit" disabled={showAnswer || !submitValue.trim()} onclick={() => submitAnswer(submitValue.trim())}>回答</button>
+
+      <div class="question">
+        {#if questionField.type === 'image'}
+          {#if imgError}
+            <button
+              class="img-retry-btn"
+              onclick={() => {
+                imgError = false;
+              }}
+            >読み込み失敗　タップで再試行</button>
+          {:else}
+            {#key `${currentIdx}-${imgError}`}
+              <img
+                src={questionField.get(currentQuestion.idol)}
+                alt="問題"
+                onerror={() => { imgError = true; }}
+              />
+            {/key}
           {/if}
+        {:else}
+          <p class="question-text">{questionField.get(currentQuestion.idol)}</p>
+        {/if}
+      </div>
+
+      {#if isMultipleChoice && currentQuestion.choices}
+        <div class="choices">
+          {#each currentQuestion.choices as choice}
+            <button
+              class="choice"
+              class:correct={showAnswer && choice === answerField.get(currentQuestion.idol)}
+              class:wrong={showAnswer &&
+                answers[currentIdx] === choice &&
+                choice !== answerField.get(currentQuestion.idol)}
+              disabled={showAnswer}
+              onclick={() => submitAnswer(choice)}
+            >
+              {choice}
+            </button>
+          {/each}
         </div>
       {:else}
-        <form
-          class="text-answer"
-          onsubmit={(e) => {
-            e.preventDefault();
-            submitAnswer(submitValue.trim());
-          }}
-        >
-          <!-- svelte-ignore a11y_autofocus -->
-          <input type="text" bind:this={textInputEl} bind:value={rawInput} placeholder="答えを入力" disabled={showAnswer} autofocus autocomplete="off" />
-          <button type="submit" disabled={showAnswer || !submitValue.trim()}>回答</button>
-        </form>
+        {#if useRomaji}
+          <div class="text-answer">
+            <div class="romaji-display-box" class:disabled={showAnswer}>
+              {#if displayText}
+                {#if isMobile}
+                  <span class="romaji-text">{displayText.slice(0, flickBuffer.cursor)}</span><span class="caret"></span><span class="romaji-text">{displayText.slice(flickBuffer.cursor)}</span>
+                {:else}
+                  <span class="romaji-text">{displayText}</span><span class="caret"></span>
+                {/if}
+              {:else if !showAnswer}
+                <span class="caret"></span>
+                <span class="romaji-placeholder">{isMobile ? 'ふりがなを入力' : 'ふりがなを入力（ローマ字）'}</span>
+              {/if}
+            </div>
+            {#if !isMobile}
+              <button class="btn-submit" disabled={showAnswer || !submitValue.trim()} onclick={() => submitAnswer(submitValue.trim())}>回答</button>
+            {/if}
+          </div>
+        {:else}
+          <form
+            class="text-answer"
+            onsubmit={(e) => {
+              e.preventDefault();
+              submitAnswer(submitValue.trim());
+            }}
+          >
+            <!-- svelte-ignore a11y_autofocus -->
+            <input type="text" bind:this={textInputEl} bind:value={rawInput} placeholder="答えを入力" disabled={showAnswer} autofocus autocomplete="off" />
+            <button type="submit" disabled={showAnswer || !submitValue.trim()}>回答</button>
+          </form>
+        {/if}
       {/if}
+    </div>
+
+    {#if isMobile && useRomaji && !isMultipleChoice}
+      <FlickKeyboard
+        bind:buffer={flickBuffer}
+        disabled={showAnswer}
+        onsubmit={() => { if (submitValue.trim()) submitAnswer(submitValue.trim()); }}
+      />
     {/if}
   </div>
 
@@ -352,14 +362,6 @@
         </div>
       </div>
     </div>
-  {/if}
-
-  {#if isMobile && useRomaji && !isMultipleChoice}
-    <FlickKeyboard
-      bind:buffer={flickBuffer}
-      disabled={showAnswer}
-      onsubmit={() => { if (submitValue.trim()) submitAnswer(submitValue.trim()); }}
-    />
   {/if}
 {/if}
 
@@ -404,13 +406,21 @@
 
 <style>
   .quiz {
-    max-width: 500px;
-    margin: 0 auto;
-    padding: 0 16px;
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: auto;
+  }
+
+  .quiz-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0 16px;
+    max-width: 500px;
+    margin: 0 auto;
+    width: 100%;
     -webkit-overflow-scrolling: touch;
   }
 
