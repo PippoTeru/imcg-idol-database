@@ -289,7 +289,11 @@
         {/if}
       </button>
     {/each}
-    <button class="func-key submit-key" onclick={onsubmit} {disabled}>回答</button>
+    <button
+      class="func-key submit-key"
+      ontouchend={(e) => { e.preventDefault(); onsubmit(); }}
+      onclick={onsubmit}
+    >回答</button>
   </div>
 </div>
 
