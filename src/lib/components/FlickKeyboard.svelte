@@ -297,7 +297,6 @@
   .flick-keyboard {
     user-select: none;
     -webkit-user-select: none;
-    touch-action: none;
   }
 
   .flick-keyboard.disabled {
@@ -326,6 +325,11 @@
     align-items: center;
     justify-content: center;
     padding: 0;
+    touch-action: manipulation;
+  }
+
+  .flick-key {
+    touch-action: none;
   }
 
   .flick-key.active {
@@ -362,6 +366,7 @@
   }
 
   .submit-key {
+    touch-action: manipulation;
     background: var(--brand);
     color: #fff;
     border-color: var(--brand);
