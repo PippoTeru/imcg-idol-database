@@ -309,13 +309,13 @@
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 0;
-    padding: 4px 0 0 0;
+    padding: 4px 0 8px 0;
   }
 
   .flick-key,
   .func-key {
     position: relative;
-    aspect-ratio: 3 / 2;
+    aspect-ratio: 5 / 3;
     font-size: 18px;
     font-weight: 500;
     border: 1px solid var(--color-gray-300);
