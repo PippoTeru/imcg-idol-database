@@ -54,6 +54,9 @@ const TABLE: [string, string][] = [
   // 1文字: 母音・記号
   ['a', 'あ'], ['i', 'い'], ['u', 'う'], ['e', 'え'], ['o', 'お'],
   ['-', 'ー'],
+  ['/', '・'],
+  ['.', '。'],
+  [',', '、'],
 ];
 
 const CONSONANTS = new Set('bcdfghjklmnpqrstvwxyz'.split(''));
