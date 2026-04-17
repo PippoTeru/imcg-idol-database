@@ -315,7 +315,7 @@
   .flick-key,
   .func-key {
     position: relative;
-    aspect-ratio: 2 / 3;
+    aspect-ratio: 3 / 2;
     font-size: 18px;
     font-weight: 500;
     border: 1px solid var(--color-gray-300);
