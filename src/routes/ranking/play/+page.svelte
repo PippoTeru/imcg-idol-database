@@ -192,43 +192,44 @@
   </div>
 {:else if phase === 'playing' && currentIdol}
   <div class="play">
-    <div class="play-header">
-      <button class="quit-btn" onclick={() => (showQuitConfirm = true)}>中断</button>
-      <span class="progress">{currentIdx + 1} / {totalCount}</span>
-      <span class="timer">{formatTime(elapsed)}</span>
-    </div>
+    <div class="play-content">
+      <div class="play-header">
+        <button class="quit-btn" onclick={() => (showQuitConfirm = true)}>中断</button>
+        <span class="progress">{currentIdx + 1} / {totalCount}</span>
+        <span class="timer">{formatTime(elapsed)}</span>
+      </div>
 
-    <div class="question">
-      <img src={questionField.get(currentIdol)} alt="問題" />
-    </div>
+      <div class="question">
+        <img src={questionField.get(currentIdol)} alt="問題" />
+      </div>
 
-    <div class="answer-area">
-      <div class="romaji-display-box" class:disabled={showAnswer}>
-        {#if displayText}
-          {#if isMobile}
-            <span class="romaji-text">{displayText.slice(0, flickBuffer.cursor)}</span><span class="caret"></span><span class="romaji-text">{displayText.slice(flickBuffer.cursor)}</span>
-          {:else}
-            <span class="romaji-text">{displayText}</span><span class="caret"></span>
+      <div class="answer-area">
+        <div class="romaji-display-box" class:disabled={showAnswer}>
+          {#if displayText}
+            {#if isMobile}
+              <span class="romaji-text">{displayText.slice(0, flickBuffer.cursor)}</span><span class="caret"></span><span class="romaji-text">{displayText.slice(flickBuffer.cursor)}</span>
+            {:else}
+              <span class="romaji-text">{displayText}</span><span class="caret"></span>
+            {/if}
+          {:else if !showAnswer}
+            <span class="caret"></span>
+            <span class="romaji-placeholder">{isMobile ? 'ふりがなを入力' : 'ふりがなを入力（ローマ字）'}</span>
           {/if}
-        {:else if !showAnswer}
-          <span class="caret"></span>
-          <span class="romaji-placeholder">{isMobile ? 'ふりがなを入力' : 'ふりがなを入力（ローマ字）'}</span>
+        </div>
+        {#if !isMobile}
+          <button class="btn btn-primary" disabled={showAnswer || !currentAnswer.trim()} onclick={submitAnswer}>回答</button>
         {/if}
       </div>
-      {#if !isMobile}
-        <button class="btn btn-primary" disabled={showAnswer || !currentAnswer.trim()} onclick={submitAnswer}>回答</button>
-      {/if}
     </div>
 
+    {#if isMobile}
+      <FlickKeyboard
+        bind:buffer={flickBuffer}
+        disabled={showAnswer}
+        onsubmit={() => { if (currentAnswer.trim()) submitAnswer(); }}
+      />
+    {/if}
   </div>
-
-  {#if isMobile}
-    <FlickKeyboard
-      bind:buffer={flickBuffer}
-      disabled={showAnswer}
-      onsubmit={() => { if (currentAnswer.trim()) submitAnswer(); }}
-    />
-  {/if}
 
   {#if showAnswer}
     <div class="overlay dark feedback-overlay" role="presentation">
@@ -311,13 +312,21 @@
 
   /* Play */
   .play {
-    max-width: 500px;
-    margin: 0 auto;
-    padding: 0 16px;
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: auto;
+  }
+
+  .play-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0 16px;
+    max-width: 500px;
+    margin: 0 auto;
+    width: 100%;
   }
 
   .play-header {
