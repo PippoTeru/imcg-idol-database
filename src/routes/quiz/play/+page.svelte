@@ -309,13 +309,6 @@
             <button class="btn-submit" disabled={showAnswer || !submitValue.trim()} onclick={() => submitAnswer(submitValue.trim())}>回答</button>
           {/if}
         </div>
-        {#if isMobile}
-          <FlickKeyboard
-            bind:buffer={flickBuffer}
-            disabled={showAnswer}
-            onsubmit={() => { if (submitValue.trim()) submitAnswer(submitValue.trim()); }}
-          />
-        {/if}
       {:else}
         <form
           class="text-answer"
@@ -359,6 +352,14 @@
         </div>
       </div>
     </div>
+  {/if}
+
+  {#if isMobile && useRomaji && !isMultipleChoice}
+    <FlickKeyboard
+      bind:buffer={flickBuffer}
+      disabled={showAnswer}
+      onsubmit={() => { if (submitValue.trim()) submitAnswer(submitValue.trim()); }}
+    />
   {/if}
 {/if}
 
