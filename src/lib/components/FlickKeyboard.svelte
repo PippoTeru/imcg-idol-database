@@ -309,7 +309,7 @@
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 0;
-    padding: 4px 0 8px 0;
+    padding: 4px 0 max(env(safe-area-inset-bottom), 16px) 0;
   }
 
   .flick-key,
