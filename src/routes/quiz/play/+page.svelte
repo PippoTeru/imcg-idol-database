@@ -73,6 +73,29 @@
   let showAnswer = $state(false);
   let phase = $state<'playing' | 'result'>('playing');
 
+  // タイマー
+  let startTime = $state(Date.now());
+  let elapsed = $state(0);
+  let timerInterval: ReturnType<typeof setInterval> | undefined;
+
+  $effect(() => {
+    if (phase === 'playing') {
+      startTime;
+      timerInterval = setInterval(() => {
+        elapsed = Date.now() - startTime;
+      }, 100);
+      return () => { if (timerInterval) clearInterval(timerInterval); };
+    }
+  });
+
+  function formatTime(ms: number): string {
+    const sec = Math.floor(ms / 1000);
+    const min = Math.floor(sec / 60);
+    const s = sec % 60;
+    const frac = Math.floor((ms % 1000) / 10);
+    return `${min}:${String(s).padStart(2, '0')}.${String(frac).padStart(2, '0')}`;
+  }
+
   // Warn before leaving
   beforeNavigate(({ cancel }) => {
     if (phase === 'playing' && !confirm('クイズ中です。ページを離れますか？')) {
@@ -100,6 +123,8 @@
     if (currentIdx + 1 < questions.length) {
       currentIdx++;
     } else {
+      if (timerInterval) clearInterval(timerInterval);
+      elapsed = Date.now() - startTime;
       phase = 'result';
     }
   }
@@ -208,6 +233,8 @@
     currentIdx = 0;
     answers = new Array(questions.length).fill(null);
     showAnswer = false;
+    startTime = Date.now();
+    elapsed = 0;
     phase = 'playing';
   }
 
@@ -216,6 +243,8 @@
     currentIdx = 0;
     answers = new Array(newQuestions.length).fill(null);
     showAnswer = false;
+    startTime = Date.now();
+    elapsed = 0;
     phase = 'playing';
   }
 
@@ -249,7 +278,8 @@
     <div class="quiz-content">
       <div class="quiz-header">
         <button class="quit-btn" onclick={() => (showQuitConfirm = true)}>中断</button>
-        <p class="progress">{currentIdx + 1} / {questions.length}</p>
+        <span class="progress">{currentIdx + 1} / {questions.length}</span>
+        <span class="timer">{formatTime(elapsed)}</span>
       </div>
 
       <div class="question">
@@ -368,6 +398,7 @@
 {#if phase === 'result'}
   <div class="result">
     <h2>結果</h2>
+    <p class="result-time">{formatTime(elapsed)}</p>
     <p class="score">{correctCount} / {questions.length} 問正解 ({Math.round((correctCount / questions.length) * 100)}%)</p>
 
     <ul class="result-list">
@@ -427,14 +458,11 @@
   .quiz-header {
     display: flex;
     align-items: center;
-    justify-content: center;
-    position: relative;
-    padding-top: 8px;
+    justify-content: space-between;
+    padding: 8px 0;
   }
 
   .quit-btn {
-    position: absolute;
-    left: 0;
     font-size: 13px;
     padding: 4px 10px;
     border: 1px solid var(--color-gray-400);
@@ -452,6 +480,13 @@
   .progress {
     font-size: 13px;
     color: var(--color-gray-500);
+  }
+
+  .timer {
+    font-size: 16px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--brand);
   }
 
   .quit-actions {
@@ -672,11 +707,19 @@
     font-weight: 700;
   }
 
-  .score {
-    font-size: 24px;
+  .result-time {
+    font-size: 28px;
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
     text-align: center;
     color: var(--brand);
+  }
+
+  .score {
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--color-gray-600);
   }
 
   .result-list {
