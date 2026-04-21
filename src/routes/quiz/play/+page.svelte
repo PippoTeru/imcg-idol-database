@@ -399,6 +399,7 @@
   <div class="result">
     <h2>結果</h2>
     <p class="result-time">{formatTime(elapsed)}</p>
+    <p class="avg-time">1問あたり {(elapsed / questions.length / 1000).toFixed(2)}秒</p>
     <p class="score">{correctCount} / {questions.length} 問正解 ({Math.round((correctCount / questions.length) * 100)}%)</p>
 
     <ul class="result-list">
@@ -713,6 +714,13 @@
     font-variant-numeric: tabular-nums;
     text-align: center;
     color: var(--brand);
+  }
+
+  .avg-time {
+    font-size: 13px;
+    color: var(--color-gray-500);
+    text-align: center;
+    margin-top: -8px;
   }
 
   .score {

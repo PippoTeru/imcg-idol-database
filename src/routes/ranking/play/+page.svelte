@@ -264,6 +264,7 @@
   <div class="result">
     <h2>結果</h2>
     <p class="final-time">{formatTime(elapsed)}</p>
+    <p class="avg-time">1問あたり {(elapsed / totalCount / 1000).toFixed(2)}秒</p>
     <p class="final-score">{correctCount} / {totalCount} 問正解</p>
 
     {#if correctCount === totalCount}
@@ -489,6 +490,13 @@
   h2 {
     font-size: 18px;
     font-weight: 700;
+  }
+
+  .avg-time {
+    font-size: 13px;
+    color: var(--color-gray-500);
+    text-align: center;
+    margin-top: -8px;
   }
 
   .final-time {
