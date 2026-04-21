@@ -99,8 +99,17 @@ export class RomajiState {
   /** 1文字追加 */
   addChar(ch: string): RomajiState {
     const next = new RomajiState();
-    next.confirmed = this.confirmed;
-    next.pending = this.pending + ch.toLowerCase();
+    let newConfirmed = this.confirmed;
+    let newPending = this.pending;
+    // pendingが空なら、confirmed末尾の孤立ASCII文字をpendingに戻す
+    if (newPending === '') {
+      while (newConfirmed.length > 0 && /[a-z]/i.test(newConfirmed[newConfirmed.length - 1])) {
+        newPending = newConfirmed[newConfirmed.length - 1] + newPending;
+        newConfirmed = newConfirmed.slice(0, -1);
+      }
+    }
+    next.confirmed = newConfirmed;
+    next.pending = newPending + ch.toLowerCase();
     next.flush();
     return next;
   }
