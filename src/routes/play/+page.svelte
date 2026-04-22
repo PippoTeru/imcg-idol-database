@@ -180,36 +180,32 @@
       playParams,
     };
 
-    // ログイン時はバックグラウンドでサーバーに保存
+    // ログイン時はバックグラウンドでサーバーに保存（遷移はブロックしない）
     const user = userStore.current;
     if (user) {
-      try {
-        const details = questions.map((q, i) => ({
-          idolName: q.idol.name,
-          correctAnswer: answerField.get(q.idol),
-          userAnswer: answers[i],
-          isCorrect: answers[i] === answerField.get(q.idol),
-          timeMs: timings[i],
-        }));
-        const res = await fetch('/api/scores', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.id,
-            mode: isRanking ? 'ranking' : 'quiz',
-            course: isRanking ? 'furigana' : null,
-            questionField: questionFieldKey,
-            answerField: answerFieldKey,
-            isMultipleChoice,
-            timeMs: elapsed,
-            correctCount,
-            totalCount: questions.length,
-            details,
-          })
-        });
-        const data = await res.json();
-        if (data.id) result.scoreId = data.id;
-      } catch { /* ignore */ }
+      const details = questions.map((q, i) => ({
+        idolName: q.idol.name,
+        correctAnswer: answerField.get(q.idol),
+        userAnswer: answers[i],
+        isCorrect: answers[i] === answerField.get(q.idol),
+        timeMs: timings[i],
+      }));
+      void fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          mode: isRanking ? 'ranking' : 'quiz',
+          course: isRanking ? 'furigana' : null,
+          questionField: questionFieldKey,
+          answerField: answerFieldKey,
+          isMultipleChoice,
+          timeMs: elapsed,
+          correctCount,
+          totalCount: questions.length,
+          details,
+        })
+      }).catch(() => { /* ignore */ });
     }
 
     savePlayResult(result);
