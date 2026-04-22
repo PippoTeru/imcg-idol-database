@@ -36,6 +36,7 @@
       {#if menuOpen}
         <button class="menu-backdrop" aria-label="メニューを閉じる" onclick={closeMenu}></button>
         <div class="menu">
+          <a href="/mypage" onclick={closeMenu}>マイページ</a>
           <button onclick={logout}>ログアウト</button>
         </div>
       {/if}
@@ -148,7 +149,8 @@
     overflow: hidden;
   }
 
-  .menu button {
+  .menu button,
+  .menu a {
     display: block;
     width: 100%;
     padding: 10px 16px;
@@ -160,7 +162,8 @@
     color: var(--color-gray-700);
   }
 
-  .menu button:hover {
+  .menu button:hover,
+  .menu a:hover {
     background: var(--color-gray-100);
   }
 
