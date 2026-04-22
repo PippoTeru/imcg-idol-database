@@ -116,7 +116,18 @@
   // キーボード入力（IMEを完全に回避するためinput要素を使わない）
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
-      showQuitConfirm = !showQuitConfirm;
+      if (showQuitConfirm) {
+        showQuitConfirm = false;
+      } else {
+        showQuitConfirm = true;
+      }
+      return;
+    }
+    if (showQuitConfirm) {
+      if (e.key === 'Enter') {
+        stopTimer();
+        goto('/ranking');
+      }
       return;
     }
     if (e.key === 'Enter') {
@@ -127,7 +138,7 @@
       }
       return;
     }
-    if (showAnswer || showQuitConfirm) return;
+    if (showAnswer) return;
     if (e.key === 'Backspace') {
       romaji = romaji.backspace();
       return;

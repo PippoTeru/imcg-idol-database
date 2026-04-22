@@ -119,6 +119,45 @@
     if (bday.max !== bday.dataMax) params.set('bdayMax', String(bday.max));
     goto(`/quiz/play?${params}`);
   }
+
+  // カウントダウン
+  let countdown = $state<number | null>(null);
+
+  function beginCountdown() {
+    if (filteredIdols.length === 0 || filterOpen) return;
+    if (countdown !== null) return;
+    countdown = 3;
+    const tick = () => {
+      if (countdown === null) return;
+      if (countdown <= 1) {
+        countdown = null;
+        startQuiz();
+        return;
+      }
+      countdown -= 1;
+      setTimeout(tick, 1000);
+    };
+    setTimeout(tick, 1000);
+  }
+
+  // Enterでスタート
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Enter') return;
+    if (filterOpen) return;
+    const target = e.target as HTMLElement | null;
+    // number inputなど他のフォーカスを邪魔しない
+    if (target && target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'number') {
+      (target as HTMLInputElement).blur();
+    }
+    if (countdown !== null) return;
+    e.preventDefault();
+    beginCountdown();
+  }
+
+  $effect(() => {
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  });
 </script>
 
 <h1>クイズ</h1>
@@ -160,10 +199,16 @@
     <span class="material-symbols-outlined">filter_list</span> フィルタで絞り込む
   </button>
 
-  <button class="btn btn-primary start-btn" onclick={startQuiz} disabled={filteredIdols.length === 0}>
+  <button class="btn btn-primary start-btn" onclick={beginCountdown} disabled={filteredIdols.length === 0 || countdown !== null}>
     スタート
   </button>
 </div>
+
+{#if countdown !== null}
+  <div class="overlay dark countdown-overlay" role="presentation">
+    <div class="countdown-num">{countdown}</div>
+  </div>
+{/if}
 
 <FilterPanel
   bind:open={filterOpen}
@@ -189,6 +234,20 @@
     font-size: 16px;
     font-weight: 700;
     padding: 12px 16px;
+  }
+
+  .countdown-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .countdown-num {
+    font-size: 160px;
+    font-weight: 900;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    animation: pop-in 0.3s ease-out;
   }
 
   .setup {

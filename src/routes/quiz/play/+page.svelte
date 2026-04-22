@@ -186,7 +186,17 @@
   // Keyboard shortcuts
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
-      showQuitConfirm = !showQuitConfirm;
+      if (showQuitConfirm) {
+        showQuitConfirm = false;
+      } else {
+        showQuitConfirm = true;
+      }
+      return;
+    }
+    if (showQuitConfirm) {
+      if (e.key === 'Enter') {
+        quitQuiz();
+      }
       return;
     }
     if (e.key === 'Enter') {
@@ -216,6 +226,23 @@
     if (phase !== 'playing') return;
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
+  });
+
+  // 結果画面のキー操作: Enterで別の問題でもう一度、ESCで問題設定に戻る
+  function handleResultKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      retry();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      goto('/quiz');
+    }
+  }
+
+  $effect(() => {
+    if (phase !== 'result') return;
+    window.addEventListener('keydown', handleResultKeydown);
+    return () => window.removeEventListener('keydown', handleResultKeydown);
   });
 
   // Preload next image
