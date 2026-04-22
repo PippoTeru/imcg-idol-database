@@ -29,7 +29,7 @@
   }
 
   function startRanking() {
-    goto('/ranking/play');
+    goto('/play?ranking=1&q=img_detail&a=furigana&mode=text&count=all');
   }
 
   function formatTime(ms: number): string {

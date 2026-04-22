@@ -9,23 +9,28 @@
   import { RomajiState } from '$lib/romaji';
   import { TextBuffer } from '$lib/textBuffer';
   import FlickKeyboard from '$lib/components/FlickKeyboard.svelte';
+  import { userStore } from '$lib/stores/user.svelte';
+  import { savePlayResult, type PlayResult } from '$lib/stores/playResult';
 
   let isMobile = $state(false);
   onMount(() => {
     isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   });
 
-  // Parse settings from URL
   const params = page.url.searchParams;
   const questionFieldKey = params.get('q') ?? 'img_detail';
   const answerFieldKey = params.get('a') ?? 'name';
   const isMultipleChoice = params.get('mode') !== 'text';
-  const questionCount = parseInt(params.get('count') ?? '10');
+  const isRanking = params.get('ranking') === '1';
+  // ランキングモードの場合は全員出題が基本、出題数パラメータがなければtotalに
+  const allIdolList = idols as Idol[];
+  const questionCount = params.get('count')
+    ? (params.get('count') === 'all' ? allIdolList.length : parseInt(params.get('count')!))
+    : (isRanking ? allIdolList.length : 10);
 
   const questionField = quizFields.find((f) => f.key === questionFieldKey)!;
   const answerField = quizFields.find((f) => f.key === answerFieldKey)!;
 
-  // Parse filter params from URL into RangeFilter objects
   function rangeFromParams(key: string, fallbackMin: number, fallbackMax: number): RangeFilter {
     const min = params.has(`${key}Min`) ? parseInt(params.get(`${key}Min`)!) : fallbackMin;
     const max = params.has(`${key}Max`) ? parseInt(params.get(`${key}Max`)!) : fallbackMax;
@@ -35,20 +40,20 @@
   const INF = -Infinity;
   const PINF = Infinity;
 
-  // 外部から渡されたアイドル名リスト（ランキング履歴からの遷移等）
+  // プリセットアイドル名リスト（リトライ等）
   const PRESET_KEY = 'quiz-preset-idols';
   const presetParam = params.get('preset');
   let presetIdols: Idol[] | null = null;
   if (presetParam && typeof localStorage !== 'undefined') {
     try {
       const names: string[] = JSON.parse(localStorage.getItem(PRESET_KEY) ?? '[]');
-      const idolByName = new Map((idols as Idol[]).map((i) => [i.name, i]));
+      const idolByName = new Map(allIdolList.map((i) => [i.name, i]));
       presetIdols = names.map((n) => idolByName.get(n)).filter((i): i is Idol => !!i);
       localStorage.removeItem(PRESET_KEY);
     } catch { /* ignore */ }
   }
 
-  const targetIdols = presetIdols ?? filterIdols(idols as Idol[], {
+  const targetIdols = presetIdols ?? filterIdols(allIdolList, {
     bloodType: params.get('bloodType') ?? '',
     zodiac: params.get('zodiac') ?? '',
     birthplace: params.get('birthplace') ?? '',
@@ -66,10 +71,10 @@
   });
 
   // Generate quiz
-  const initialQuestions = generateQuiz(targetIdols, answerField, questionCount, isMultipleChoice);
-  let questions = $state(initialQuestions);
+  const questions = generateQuiz(targetIdols, answerField, questionCount, isMultipleChoice);
   let currentIdx = $state(0);
-  let answers = $state<(string | null)[]>(new Array(initialQuestions.length).fill(null));
+  let answers = $state<(string | null)[]>(new Array(questions.length).fill(null));
+  let timings = $state<number[]>(new Array(questions.length).fill(0));
   let showAnswer = $state(false);
   let phase = $state<'countdown' | 'playing' | 'result'>('countdown');
   let countdown = $state(3);
@@ -77,6 +82,7 @@
   // タイマー
   let startTime = $state(0);
   let elapsed = $state(0);
+  let questionStartTime = $state(0);
   let timerInterval: ReturnType<typeof setInterval> | undefined;
 
   $effect(() => {
@@ -96,6 +102,7 @@
     const tick = () => {
       if (countdown <= 1) {
         startTime = Date.now();
+        questionStartTime = startTime;
         elapsed = 0;
         phase = 'playing';
         return;
@@ -115,28 +122,27 @@
     return `${min}:${String(s).padStart(2, '0')}.${String(frac).padStart(2, '0')}`;
   }
 
-  // Warn before leaving
-  beforeNavigate(({ cancel }) => {
-    if (phase === 'playing' && !confirm('クイズ中です。ページを離れますか？')) {
-      cancel();
+  beforeNavigate(({ cancel, to }) => {
+    if (phase === 'playing' && to?.url.pathname !== '/result') {
+      if (!confirm('クイズ中です。ページを離れますか？')) cancel();
     }
   });
 
   $effect(() => {
     if (phase !== 'playing') return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-    };
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   });
 
   function submitAnswer(answer: string) {
+    const now = Date.now();
+    timings[currentIdx] = now - questionStartTime;
     answers[currentIdx] = answer;
-    // 最後の問題ならこの時点でタイマーを確定
+    // 最後の問題ならタイマー確定
     if (currentIdx + 1 >= questions.length) {
       if (timerInterval) clearInterval(timerInterval);
-      elapsed = Date.now() - startTime;
+      elapsed = now - startTime;
     }
     showAnswer = true;
   }
@@ -146,26 +152,81 @@
     imgError = false;
     if (currentIdx + 1 < questions.length) {
       currentIdx++;
+      questionStartTime = Date.now();
+      romaji = RomajiState.empty();
+      flickBuffer = TextBuffer.empty();
+      rawInput = '';
     } else {
-      phase = 'result';
+      finishAndGotoResult();
     }
+  }
+
+  async function finishAndGotoResult() {
+    const correctCount = questions.filter((q, i) => answers[i] === answerField.get(q.idol)).length;
+    const playParams: Record<string, string> = {};
+    for (const [k, v] of params.entries()) {
+      if (k !== 'preset') playParams[k] = v;
+    }
+
+    const result: PlayResult = {
+      questionFieldKey,
+      answerFieldKey,
+      isMultipleChoice,
+      isRanking,
+      idolNames: questions.map((q) => q.idol.name),
+      answers: [...answers],
+      timings: [...timings],
+      elapsed,
+      playParams,
+    };
+
+    // ログイン時はバックグラウンドでサーバーに保存
+    const user = userStore.current;
+    if (user) {
+      try {
+        const details = questions.map((q, i) => ({
+          idolName: q.idol.name,
+          correctAnswer: answerField.get(q.idol),
+          userAnswer: answers[i],
+          isCorrect: answers[i] === answerField.get(q.idol),
+          timeMs: timings[i],
+        }));
+        const res = await fetch('/api/scores', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            mode: isRanking ? 'ranking' : 'quiz',
+            course: isRanking ? 'furigana' : null,
+            questionField: questionFieldKey,
+            answerField: answerFieldKey,
+            isMultipleChoice,
+            timeMs: elapsed,
+            correctCount,
+            totalCount: questions.length,
+            details,
+          })
+        });
+        const data = await res.json();
+        if (data.id) result.scoreId = data.id;
+      } catch { /* ignore */ }
+    }
+
+    savePlayResult(result);
+    phase = 'result';
+    goto('/result');
   }
 
   let currentQuestion = $derived(questions[currentIdx]);
   let isCorrect = $derived(
-    answers[currentIdx] != null &&
-      currentQuestion &&
+    answers[currentIdx] != null && currentQuestion &&
       answers[currentIdx] === answerField.get(currentQuestion.idol)
-  );
-
-  let correctCount = $derived(
-    questions.filter((q, i) => answers[i] === answerField.get(q.idol)).length
   );
 
   // 画像読み込みエラー
   let imgError = $state(false);
 
-  // Text input
+  // 入力
   const useRomaji = answerFieldKey === 'furigana';
   let romaji = $state(RomajiState.empty());
   let flickBuffer = $state(TextBuffer.empty());
@@ -185,7 +246,6 @@
     }
   });
 
-  // キーボード表示時に入力欄を見える位置にスクロール
   $effect(() => {
     if (useRomaji || !textInputEl) return;
     const scrollIntoView = () => {
@@ -197,43 +257,32 @@
     return () => textInputEl?.removeEventListener('focus', scrollIntoView);
   });
 
-  // Quit confirmation
+  // 中断確認
   let showQuitConfirm = $state(false);
 
-  function quitQuiz() {
-    phase = 'result';
-    goto('/quiz');
+  function quitPlay() {
+    if (timerInterval) clearInterval(timerInterval);
+    goto(isRanking ? '/ranking' : '/quiz');
   }
 
-  // Keyboard shortcuts
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
-      if (showQuitConfirm) {
-        showQuitConfirm = false;
-      } else {
-        showQuitConfirm = true;
-      }
+      showQuitConfirm = !showQuitConfirm;
       return;
     }
     if (showQuitConfirm) {
-      if (e.key === 'Enter') {
-        quitQuiz();
-      }
+      if (e.key === 'Enter') quitPlay();
       return;
     }
     if (e.key === 'Enter') {
       if (showAnswer) {
-        romaji = RomajiState.empty();
-        flickBuffer = TextBuffer.empty();
-        rawInput = '';
         nextQuestion();
-      } else if (useRomaji && !isMultipleChoice && !showAnswer && submitValue.trim()) {
+      } else if (useRomaji && !isMultipleChoice && submitValue.trim()) {
         submitAnswer(submitValue.trim());
       }
       return;
     }
-    // ふりがなモード: IME回避のためキーボードから直接入力
-    if (useRomaji && !isMultipleChoice && !showAnswer && !showQuitConfirm) {
+    if (useRomaji && !isMultipleChoice && !showAnswer) {
       if (e.key === 'Backspace') {
         romaji = romaji.backspace();
         return;
@@ -245,29 +294,12 @@
   }
 
   $effect(() => {
-    if (phase !== 'playing') return;
+    if (phase !== 'playing' && phase !== 'countdown') return;
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
   });
 
-  // 結果画面のキー操作: Enterで別の問題でもう一度、ESCで問題設定に戻る
-  function handleResultKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      retry();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      goto('/quiz');
-    }
-  }
-
-  $effect(() => {
-    if (phase !== 'result') return;
-    window.addEventListener('keydown', handleResultKeydown);
-    return () => window.removeEventListener('keydown', handleResultKeydown);
-  });
-
-  // Preload next image
+  // 次の画像をプリロード
   $effect(() => {
     if (phase !== 'playing' || questionField.type !== 'image') return;
     const nextIdx = currentIdx + 1;
@@ -276,48 +308,6 @@
       img.src = questionField.get(questions[nextIdx].idol);
     }
   });
-
-  function retry() {
-    questions = generateQuiz(targetIdols, answerField, questionCount, isMultipleChoice);
-    currentIdx = 0;
-    answers = new Array(questions.length).fill(null);
-    showAnswer = false;
-    elapsed = 0;
-    phase = 'countdown';
-  }
-
-  function resetQuiz(newQuestions: typeof questions) {
-    questions = newQuestions;
-    currentIdx = 0;
-    answers = new Array(newQuestions.length).fill(null);
-    showAnswer = false;
-    elapsed = 0;
-    phase = 'countdown';
-  }
-
-  function shuffleQuestions(qs: typeof questions) {
-    return [...qs].sort(() => Math.random() - 0.5);
-  }
-
-  function retrySame() {
-    resetQuiz(questions);
-  }
-
-  function retrySameShuffled() {
-    resetQuiz(shuffleQuestions(questions));
-  }
-
-  function retryWrongOnly() {
-    const wrong = questions.filter((q, i) => answers[i] !== answerField.get(q.idol));
-    if (wrong.length === 0) return;
-    resetQuiz(wrong);
-  }
-
-  function retryWrongShuffled() {
-    const wrong = questions.filter((q, i) => answers[i] !== answerField.get(q.idol));
-    if (wrong.length === 0) return;
-    resetQuiz(shuffleQuestions(wrong));
-  }
 </script>
 
 {#if phase === 'countdown'}
@@ -327,9 +317,9 @@
 {/if}
 
 {#if phase === 'playing' && currentQuestion}
-  <div class="quiz">
-    <div class="quiz-content">
-      <div class="quiz-header">
+  <div class="play">
+    <div class="play-content">
+      <div class="play-header">
         <button class="quit-btn" onclick={() => (showQuitConfirm = true)}>中断</button>
         <span class="progress">{currentIdx + 1} / {questions.length}</span>
         <span class="timer">{formatTime(elapsed)}</span>
@@ -338,12 +328,9 @@
       <div class="question">
         {#if questionField.type === 'image'}
           {#if imgError}
-            <button
-              class="img-retry-btn"
-              onclick={() => {
-                imgError = false;
-              }}
-            >読み込み失敗　タップで再試行</button>
+            <button class="img-retry-btn" onclick={() => { imgError = false; }}>
+              読み込み失敗　タップで再試行
+            </button>
           {:else}
             {#key `${currentIdx}-${imgError}`}
               <img
@@ -364,9 +351,7 @@
             <button
               class="choice"
               class:correct={showAnswer && choice === answerField.get(currentQuestion.idol)}
-              class:wrong={showAnswer &&
-                answers[currentIdx] === choice &&
-                choice !== answerField.get(currentQuestion.idol)}
+              class:wrong={showAnswer && answers[currentIdx] === choice && choice !== answerField.get(currentQuestion.idol)}
               disabled={showAnswer}
               onclick={() => submitAnswer(choice)}
             >
@@ -374,38 +359,30 @@
             </button>
           {/each}
         </div>
-      {:else}
-        {#if useRomaji}
-          <div class="text-answer">
-            <div class="romaji-display-box" class:disabled={showAnswer}>
-              {#if displayText}
-                {#if isMobile}
-                  <span class="romaji-text">{displayText.slice(0, flickBuffer.cursor)}</span><span class="caret"></span><span class="romaji-text">{displayText.slice(flickBuffer.cursor)}</span>
-                {:else}
-                  <span class="romaji-text">{displayText}</span><span class="caret"></span>
-                {/if}
-              {:else if !showAnswer}
-                <span class="caret"></span>
-                <span class="romaji-placeholder">{isMobile ? 'ふりがなを入力' : 'ふりがなを入力（ローマ字）'}</span>
+      {:else if useRomaji}
+        <div class="text-answer">
+          <div class="romaji-display-box" class:disabled={showAnswer}>
+            {#if displayText}
+              {#if isMobile}
+                <span class="romaji-text">{displayText.slice(0, flickBuffer.cursor)}</span><span class="caret"></span><span class="romaji-text">{displayText.slice(flickBuffer.cursor)}</span>
+              {:else}
+                <span class="romaji-text">{displayText}</span><span class="caret"></span>
               {/if}
-            </div>
-            {#if !isMobile}
-              <button class="btn-submit" disabled={showAnswer || !submitValue.trim()} onclick={() => submitAnswer(submitValue.trim())}>回答</button>
+            {:else if !showAnswer}
+              <span class="caret"></span>
+              <span class="romaji-placeholder">{isMobile ? 'ふりがなを入力' : 'ふりがなを入力（ローマ字）'}</span>
             {/if}
           </div>
-        {:else}
-          <form
-            class="text-answer"
-            onsubmit={(e) => {
-              e.preventDefault();
-              submitAnswer(submitValue.trim());
-            }}
-          >
-            <!-- svelte-ignore a11y_autofocus -->
-            <input type="text" bind:this={textInputEl} bind:value={rawInput} placeholder="答えを入力" disabled={showAnswer} autofocus autocomplete="off" />
-            <button type="submit" disabled={showAnswer || !submitValue.trim()}>回答</button>
-          </form>
-        {/if}
+          {#if !isMobile}
+            <button class="btn-submit" disabled={showAnswer || !submitValue.trim()} onclick={() => submitAnswer(submitValue.trim())}>回答</button>
+          {/if}
+        </div>
+      {:else}
+        <form class="text-answer" onsubmit={(e) => { e.preventDefault(); submitAnswer(submitValue.trim()); }}>
+          <!-- svelte-ignore a11y_autofocus -->
+          <input type="text" bind:this={textInputEl} bind:value={rawInput} placeholder="答えを入力" disabled={showAnswer} autofocus autocomplete="off" />
+          <button type="submit" disabled={showAnswer || !submitValue.trim()}>回答</button>
+        </form>
       {/if}
     </div>
 
@@ -427,7 +404,7 @@
           <p class="feedback-text">不正解...</p>
           <p class="feedback-answer">正解: {answerField.get(currentQuestion.idol)}</p>
         {/if}
-        <button class="btn btn-primary" onclick={() => { romaji = RomajiState.empty(); flickBuffer = TextBuffer.empty(); rawInput = ''; nextQuestion(); }}>
+        <button class="btn btn-primary" onclick={nextQuestion}>
           {currentIdx + 1 < questions.length ? '次の問題' : '結果を見る'}
         </button>
       </div>
@@ -438,55 +415,15 @@
     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
     <div class="overlay dark feedback-overlay" onclick={() => (showQuitConfirm = false)}>
       <div class="feedback-modal" onclick={(e) => e.stopPropagation()}>
-        <p class="feedback-text">クイズを中断しますか？</p>
+        <p class="feedback-text">{isRanking ? 'ランキングモード' : 'クイズ'}を中断しますか？</p>
+        {#if isRanking}<p class="feedback-answer">記録は保存されません</p>{/if}
         <div class="quit-actions">
-          <button class="btn btn-primary" onclick={quitQuiz}>設定に戻る</button>
-          <button class="btn quit-cancel" onclick={() => (showQuitConfirm = false)}>続ける</button>
+          <button class="btn btn-primary" onclick={quitPlay}>中断する</button>
+          <button class="btn" onclick={() => (showQuitConfirm = false)}>続ける</button>
         </div>
       </div>
     </div>
   {/if}
-{/if}
-
-{#if phase === 'result'}
-  <div class="result">
-    <h2>結果</h2>
-    <p class="result-time">{formatTime(elapsed)}</p>
-    <p class="avg-time">1問あたり {(elapsed / questions.length / 1000).toFixed(2)}秒</p>
-    <p class="score">{correctCount} / {questions.length} 問正解 ({Math.round((correctCount / questions.length) * 100)}%)</p>
-
-    <ul class="result-list">
-      {#each questions as q, i}
-        {@const correct = answers[i] === answerField.get(q.idol)}
-        <li class:correct class:wrong={!correct}>
-          {#if questionField.type === 'image'}
-            <img src={questionField.get(q.idol)} alt="" />
-          {:else}
-            <span class="q">問題: {questionField.get(q.idol)}</span>
-          {/if}
-          <span class="a">正解: {answerField.get(q.idol)}</span>
-          {#if !correct}
-            <span class="wrong-a">あなたの回答: {answers[i] ?? '未回答'}</span>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-
-    <div class="result-actions">
-      <button class="btn btn-primary" onclick={retry}>別の問題でもう一度</button>
-      <div class="result-actions-row">
-        <button class="btn btn-secondary" onclick={retrySame}>同じ問題（同順）</button>
-        <button class="btn btn-secondary" onclick={retrySameShuffled}>同じ問題（シャッフル）</button>
-      </div>
-      {#if correctCount < questions.length}
-        <div class="result-actions-row">
-          <button class="btn btn-secondary" onclick={retryWrongOnly}>誤答のみ（同順）</button>
-          <button class="btn btn-secondary" onclick={retryWrongShuffled}>誤答のみ（シャッフル）</button>
-        </div>
-      {/if}
-      <button class="btn btn-muted" onclick={() => goto('/quiz')}>問題設定に戻る</button>
-    </div>
-  </div>
 {/if}
 
 <style>
@@ -505,14 +442,14 @@
     animation: pop-in 0.3s ease-out;
   }
 
-  .quiz {
+  .play {
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: auto;
   }
 
-  .quiz-content {
+  .play-content {
     flex: 1;
     min-height: 0;
     display: flex;
@@ -524,7 +461,7 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .quiz-header {
+  .play-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -717,7 +654,6 @@
     cursor: default;
   }
 
-  /* Feedback modal */
   .feedback-overlay {
     display: flex;
     align-items: center;
@@ -759,96 +695,6 @@
     font-size: 14px;
     color: var(--color-gray-600);
     margin-bottom: 16px;
-  }
-
-  /* Result */
-  .result {
-    max-width: 500px;
-    margin: 0 auto;
-    padding: 16px 16px 40px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  h2 {
-    font-size: 18px;
-    font-weight: 700;
-  }
-
-  .result-time {
-    font-size: 28px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-    color: var(--brand);
-  }
-
-  .avg-time {
-    font-size: 13px;
-    color: var(--color-gray-500);
-    text-align: center;
-    margin-top: -8px;
-  }
-
-  .score {
-    font-size: 16px;
-    font-weight: 600;
-    text-align: center;
-    color: var(--color-gray-600);
-  }
-
-  .result-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .result-list li {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 12px;
-    border-radius: 6px;
-    font-size: 13px;
-  }
-
-  .result-list li.correct {
-    background: var(--color-success-bg);
-  }
-
-  .result-list li.wrong {
-    background: var(--color-danger-bg);
-  }
-
-  .result-list img {
-    max-height: 120px;
-    align-self: flex-start;
-    border-radius: 4px;
-  }
-
-  .result-list .a {
-    font-weight: 600;
-  }
-
-  .result-list .wrong-a {
-    color: var(--color-gray-500);
-  }
-
-  .result-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: stretch;
-  }
-
-  .result-actions-row {
-    display: flex;
-    gap: 8px;
-  }
-
-  .result-actions-row :global(.btn) {
-    flex: 1;
   }
 
   @media (max-width: 768px) {

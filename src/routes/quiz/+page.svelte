@@ -117,7 +117,7 @@
     if (hip.max !== hip.dataMax) params.set('hipMax', String(hip.max));
     if (bday.min !== bday.dataMin) params.set('bdayMin', String(bday.min));
     if (bday.max !== bday.dataMax) params.set('bdayMax', String(bday.max));
-    goto(`/quiz/play?${params}`);
+    goto(`/play?${params}`);
   }
 
   // Enterでスタート
