@@ -66,6 +66,10 @@
 
   function submitAnswer() {
     answers[currentIdx] = currentAnswer.trim();
+    // 最後の問題ならこの時点でタイマーを確定
+    if (currentIdx + 1 >= totalCount) {
+      stopTimer();
+    }
     showAnswer = true;
   }
 
@@ -76,7 +80,6 @@
     if (currentIdx + 1 < totalCount) {
       currentIdx++;
     } else {
-      stopTimer();
       phase = 'result';
       saveScore();
     }

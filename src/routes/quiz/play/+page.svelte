@@ -71,10 +71,11 @@
   let currentIdx = $state(0);
   let answers = $state<(string | null)[]>(new Array(initialQuestions.length).fill(null));
   let showAnswer = $state(false);
-  let phase = $state<'playing' | 'result'>('playing');
+  let phase = $state<'countdown' | 'playing' | 'result'>('countdown');
+  let countdown = $state(3);
 
   // タイマー
-  let startTime = $state(Date.now());
+  let startTime = $state(0);
   let elapsed = $state(0);
   let timerInterval: ReturnType<typeof setInterval> | undefined;
 
@@ -86,6 +87,24 @@
       }, 100);
       return () => { if (timerInterval) clearInterval(timerInterval); };
     }
+  });
+
+  // カウントダウン
+  $effect(() => {
+    if (phase !== 'countdown') return;
+    countdown = 3;
+    const tick = () => {
+      if (countdown <= 1) {
+        startTime = Date.now();
+        elapsed = 0;
+        phase = 'playing';
+        return;
+      }
+      countdown -= 1;
+      setTimeout(tick, 1000);
+    };
+    const t = setTimeout(tick, 1000);
+    return () => clearTimeout(t);
   });
 
   function formatTime(ms: number): string {
@@ -114,6 +133,11 @@
 
   function submitAnswer(answer: string) {
     answers[currentIdx] = answer;
+    // 最後の問題ならこの時点でタイマーを確定
+    if (currentIdx + 1 >= questions.length) {
+      if (timerInterval) clearInterval(timerInterval);
+      elapsed = Date.now() - startTime;
+    }
     showAnswer = true;
   }
 
@@ -123,8 +147,6 @@
     if (currentIdx + 1 < questions.length) {
       currentIdx++;
     } else {
-      if (timerInterval) clearInterval(timerInterval);
-      elapsed = Date.now() - startTime;
       phase = 'result';
     }
   }
@@ -260,9 +282,8 @@
     currentIdx = 0;
     answers = new Array(questions.length).fill(null);
     showAnswer = false;
-    startTime = Date.now();
     elapsed = 0;
-    phase = 'playing';
+    phase = 'countdown';
   }
 
   function resetQuiz(newQuestions: typeof questions) {
@@ -270,9 +291,8 @@
     currentIdx = 0;
     answers = new Array(newQuestions.length).fill(null);
     showAnswer = false;
-    startTime = Date.now();
     elapsed = 0;
-    phase = 'playing';
+    phase = 'countdown';
   }
 
   function shuffleQuestions(qs: typeof questions) {
@@ -299,6 +319,12 @@
     resetQuiz(shuffleQuestions(wrong));
   }
 </script>
+
+{#if phase === 'countdown'}
+  <div class="countdown-screen">
+    <div class="countdown-num">{countdown}</div>
+  </div>
+{/if}
 
 {#if phase === 'playing' && currentQuestion}
   <div class="quiz">
@@ -464,6 +490,21 @@
 {/if}
 
 <style>
+  .countdown-screen {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .countdown-num {
+    font-size: 160px;
+    font-weight: 900;
+    color: var(--brand);
+    font-variant-numeric: tabular-nums;
+    animation: pop-in 0.3s ease-out;
+  }
+
   .quiz {
     display: flex;
     flex-direction: column;
