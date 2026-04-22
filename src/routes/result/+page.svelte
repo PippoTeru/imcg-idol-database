@@ -102,11 +102,20 @@
   </div>
 {:else}
   {@const hasWrong = correctCount < idolsInOrder.length}
+  {@const answerTimeSum = result.timings.reduce((a, b) => a + b, 0)}
+  {@const feedbackTime = Math.max(0, result.elapsed - answerTimeSum)}
   <div class="result">
     <h2>結果{result.isRanking ? '（ランキング）' : ''}</h2>
     <p class="result-time">{formatTime(result.elapsed)}</p>
-    <p class="avg-time">1問あたり {(result.elapsed / idolsInOrder.length / 1000).toFixed(2)}秒</p>
     <p class="score">{correctCount} / {idolsInOrder.length} 問正解 ({Math.round((correctCount / idolsInOrder.length) * 100)}%)</p>
+
+    <div class="time-breakdown">
+      <div class="tb-row"><span class="tb-label">総合タイム</span><span class="tb-value">{formatTime(result.elapsed)}</span></div>
+      <div class="tb-row"><span class="tb-label">解答時間</span><span class="tb-value">{formatTime(answerTimeSum)}</span></div>
+      <div class="tb-row"><span class="tb-label">フィードバック時間</span><span class="tb-value">{formatTime(feedbackTime)}</span></div>
+      <div class="tb-row"><span class="tb-label">1問あたり（総合）</span><span class="tb-value">{(result.elapsed / idolsInOrder.length / 1000).toFixed(2)}秒</span></div>
+      <div class="tb-row"><span class="tb-label">1問あたり（解答）</span><span class="tb-value">{(answerTimeSum / idolsInOrder.length / 1000).toFixed(2)}秒</span></div>
+    </div>
 
     {#if result.isRanking}
       <p class="note">ランキングに記録されました</p>
@@ -184,18 +193,36 @@
     color: var(--brand);
   }
 
-  .avg-time {
-    font-size: 13px;
-    color: var(--color-gray-500);
-    text-align: center;
-    margin-top: -8px;
-  }
-
   .score {
     font-size: 16px;
     font-weight: 600;
     text-align: center;
     color: var(--color-gray-600);
+  }
+
+  .time-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 16px;
+    background: var(--color-gray-100);
+    border-radius: 6px;
+    font-size: 13px;
+  }
+
+  .tb-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .tb-label {
+    color: var(--color-gray-600);
+  }
+
+  .tb-value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
 
   .note {
