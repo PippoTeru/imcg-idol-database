@@ -7,8 +7,7 @@
   import { RomajiState } from '$lib/romaji';
   import { TextBuffer } from '$lib/textBuffer';
   import FlickKeyboard from '$lib/components/FlickKeyboard.svelte';
-
-  const USER_KEY = 'ranking-user';
+  import { userStore } from '$lib/stores/user.svelte';
 
   // デバイス判定（タッチデバイス = スマホ）
   let isMobile = $state(false);
@@ -20,12 +19,7 @@
   const questionField = quizFields.find((f) => f.key === 'img_detail')!;
   const answerField = quizFields.find((f) => f.key === 'furigana')!;
 
-  // ユーザー確認
-  let user = $state<{ id: number; nickname: string } | null>(null);
-  try {
-    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem(USER_KEY) : null;
-    if (saved) user = JSON.parse(saved);
-  } catch { /* ignore */ }
+  let user = $derived(userStore.current);
 
   // 全員シャッフル
   const allIdols = [...(idols as Idol[])].sort(() => Math.random() - 0.5);
@@ -190,17 +184,16 @@
   }
 </script>
 
-{#if !user}
-  <div class="center">
-    <p>ログインが必要です</p>
-    <button class="btn btn-primary" onclick={() => goto('/ranking')}>ランキングページへ</button>
-  </div>
-{:else if phase === 'ready'}
+{#if phase === 'ready'}
   <div class="center">
     <h1>ランキングモード</h1>
     <p class="desc">立ち絵 → ふりがな（記述式）</p>
     <p class="desc">{totalCount}問・タイム計測</p>
-    <p class="user">プレイヤー: {user.nickname}</p>
+    {#if user}
+      <p class="user">プレイヤー: {user.nickname}</p>
+    {:else}
+      <p class="guest">ゲストプレイ（記録は保存されません）</p>
+    {/if}
     <button class="btn btn-primary start-btn" onclick={startGame}>スタート</button>
     <button class="btn btn-muted" onclick={() => goto('/ranking')}>戻る</button>
   </div>
@@ -317,6 +310,11 @@
   .user {
     font-size: 14px;
     font-weight: 600;
+  }
+
+  .guest {
+    font-size: 13px;
+    color: var(--color-gray-500);
   }
 
   .start-btn {

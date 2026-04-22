@@ -2,8 +2,14 @@
   import '$lib/styles/reset.css';
   import favicon from '$lib/assets/favicon.ico';
   import Header from '$lib/components/Header.svelte';
+  import { onMount } from 'svelte';
+  import { userStore } from '$lib/stores/user.svelte';
 
   let { children } = $props();
+
+  onMount(() => {
+    userStore.load();
+  });
 </script>
 
 <svelte:head>
